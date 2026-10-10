@@ -1,7 +1,19 @@
-"""Optional Claude narrator. Off unless credentials and the `anthropic` package are present.
+"""Optional language-model narrator, behind the grounding gate. Off unless a provider is configured.
 
-The model only rephrases a compact fact sheet; its output must pass the grounding gate or the
-template explanation is shown instead. The app is fully functional with this module off.
+Providers (chosen by ``GREENIQ_LLM_PROVIDER``; default ``auto``):
+
+- ``anthropic``  Claude via the official SDK (needs ``ANTHROPIC_API_KEY`` and ``uv sync --extra llm``).
+- ``ollama``     a local Ollama server, native ``/api/chat`` (no key, no cost, offline).
+                 ``GREENIQ_OLLAMA_URL`` (default http://127.0.0.1:11434), ``GREENIQ_OLLAMA_MODEL`` (default qwen2.5:7b).
+- ``openai_compatible``  any OpenAI-compatible ``/chat/completions`` endpoint, e.g. free tiers of Groq,
+                 Google Gemini or OpenRouter, or Ollama's ``/v1``: ``GREENIQ_LLM_BASE_URL``,
+                 ``GREENIQ_LLM_API_KEY``, ``GREENIQ_LLM_MODEL``.
+- ``off``        template narrator only (also ``GREENIQ_LLM=off``).
+
+``auto`` picks Anthropic if a key is set, else an OpenAI-compatible endpoint if configured, else
+Ollama if a server answers within one second, else off. Whatever the model writes, it only reaches
+a user if it passes the grounding gate; otherwise the template explanation is shown. Nothing here
+ever raises into the app.
 """
 
 from __future__ import annotations
@@ -9,22 +21,93 @@ from __future__ import annotations
 import json
 import os
 
+import httpx
+
 from ..facts import ComputedFacts
 from .prompts import PROMPT_VERSION, SYSTEM_PROMPT, USER_TEMPLATE
 
-MODEL = os.environ.get("GREENIQ_LLM_MODEL", "claude-opus-5-5")
+CLAUDE_MODEL = "claude-opus-5-5"
+TIMEOUT_S = float(os.environ.get("GREENIQ_LLM_TIMEOUT_S", "60"))
+
+
+def _env(k: str, default: str = "") -> str:
+    return os.environ.get(k, default).strip()
+
+
+def _ollama_url() -> str:
+    return _env("GREENIQ_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+
+
+def _ollama_model() -> str:
+    return _env("GREENIQ_OLLAMA_MODEL", "qwen2.5:7b")
+
+
+def _ollama_probe() -> tuple[bool, str]:
+    """Fast reachability + model check (1 s), so a missing server never slows the app."""
+    try:
+        r = httpx.get(f"{_ollama_url()}/api/tags", timeout=1.0)
+        r.raise_for_status()
+        names = {m.get("name", "") for m in r.json().get("models", [])}
+    except Exception:
+        return False, f"Ollama not reachable at {_ollama_url()}"
+    want = _ollama_model()
+    if want not in names and f"{want}:latest" not in names:
+        return False, f"Ollama is running but model {want!r} is not pulled (ollama pull {want})"
+    return True, f"Ollama {want} behind the grounding gate"
+
+
+_CACHE: dict = {}
+_ENV_KEYS = ("GREENIQ_LLM", "GREENIQ_LLM_PROVIDER", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "GREENIQ_LLM_BASE_URL",
+             "GREENIQ_LLM_MODEL", "GREENIQ_OLLAMA_URL", "GREENIQ_OLLAMA_MODEL")
+
+
+def provider() -> tuple[str, str]:
+    """(provider name, human-readable status), cached for 10 s per configuration."""
+    import time
+
+    key = tuple(_env(k) for k in _ENV_KEYS)
+    hit = _CACHE.get(key)
+    if hit and time.monotonic() - hit[0] < 10:
+        return hit[1]
+    out = _provider()
+    _CACHE.clear()
+    _CACHE[key] = (time.monotonic(), out)
+    return out
+
+
+def _provider() -> tuple[str, str]:
+    if _env("GREENIQ_LLM").lower() == "off":
+        return "off", "disabled (GREENIQ_LLM=off)"
+    want = _env("GREENIQ_LLM_PROVIDER", "auto").lower()
+    if want == "off":
+        return "off", "disabled (GREENIQ_LLM_PROVIDER=off)"
+    if want in ("auto", "anthropic") and (_env("ANTHROPIC_API_KEY") or _env("ANTHROPIC_AUTH_TOKEN")):
+        try:
+            import anthropic  # noqa: F401
+            return "anthropic", f"{_env('GREENIQ_LLM_MODEL', CLAUDE_MODEL)} behind the grounding gate"
+        except ImportError:
+            if want == "anthropic":
+                return "off", "anthropic package not installed (uv sync --extra llm)"
+    elif want == "anthropic":
+        return "off", "no ANTHROPIC_API_KEY (template narrator)"
+    if want in ("auto", "openai_compatible") and _env("GREENIQ_LLM_BASE_URL"):
+        if not _env("GREENIQ_LLM_MODEL"):
+            return "off", "GREENIQ_LLM_MODEL not set for the OpenAI-compatible endpoint"
+        return "openai_compatible", f"{_env('GREENIQ_LLM_MODEL')} at {_env('GREENIQ_LLM_BASE_URL')} behind the grounding gate"
+    if want == "openai_compatible":
+        return "off", "GREENIQ_LLM_BASE_URL not set"
+    if want in ("auto", "ollama"):
+        ok, why = _ollama_probe()
+        if ok:
+            return "ollama", why
+        if want == "ollama":
+            return "off", why
+    return "off", "no language model configured (template narrator)"
 
 
 def llm_status() -> tuple[bool, str]:
-    if os.environ.get("GREENIQ_LLM", "").lower() == "off":
-        return False, "disabled (GREENIQ_LLM=off)"
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-        return False, "no API key (template narrator)"
-    try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        return False, "anthropic package not installed (uv sync --extra llm)"
-    return True, f"{MODEL} behind the grounding gate"
+    name, why = provider()
+    return name != "off", why
 
 
 def fact_sheet(f: ComputedFacts, scope: str) -> dict:
@@ -58,25 +141,25 @@ def fact_sheet(f: ComputedFacts, scope: str) -> dict:
     return sheet
 
 
-def generate(f: ComputedFacts, scope: str) -> tuple[str | None, str]:
-    """Return (text, note). text is None when the model could not answer (never raises)."""
-    ok, why = llm_status()
-    if not ok:
-        return None, why
+def _messages(f: ComputedFacts, scope: str) -> str:
+    return USER_TEMPLATE.format(scope="home's analysis" if scope == "home" else "retrofit package",
+                                facts_json=json.dumps(fact_sheet(f, scope), sort_keys=True))
+
+
+def _anthropic(user: str) -> tuple[str | None, str]:
     import anthropic
 
-    client = anthropic.Anthropic()
+    model = _env("GREENIQ_LLM_MODEL", CLAUDE_MODEL)
+    client = anthropic.Anthropic(timeout=TIMEOUT_S)
     try:
         resp = client.beta.messages.create(
-            model=MODEL,
+            model=model,
             max_tokens=2000,
             output_config={"effort": "low"},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",  # server-side refusal fallback routed by category
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": USER_TEMPLATE.format(
-                scope="home's analysis" if scope == "home" else "retrofit package",
-                facts_json=json.dumps(fact_sheet(f, scope), sort_keys=True))}],
+            messages=[{"role": "user", "content": user}],
         )
     except anthropic.APIConnectionError:
         return None, "language model unreachable"
@@ -88,3 +171,42 @@ def generate(f: ComputedFacts, scope: str) -> tuple[str | None, str]:
         return None, "language model declined"
     text = " ".join(b.text for b in resp.content if b.type == "text").strip()
     return (text or None), f"{resp.model} · {PROMPT_VERSION}"
+
+
+def _ollama(user: str) -> tuple[str | None, str]:
+    model = _ollama_model()
+    r = httpx.post(f"{_ollama_url()}/api/chat", timeout=TIMEOUT_S, json={
+        "model": model, "stream": False,
+        "options": {"temperature": 0, "seed": 42},  # deterministic, so a result can be reproduced
+        "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+    })
+    r.raise_for_status()
+    text = (r.json().get("message") or {}).get("content", "").strip()
+    return (text or None), f"ollama/{model} · {PROMPT_VERSION}"
+
+
+def _openai_compatible(user: str) -> tuple[str | None, str]:
+    base, model, key = _env("GREENIQ_LLM_BASE_URL").rstrip("/"), _env("GREENIQ_LLM_MODEL"), _env("GREENIQ_LLM_API_KEY")
+    r = httpx.post(f"{base}/chat/completions", timeout=TIMEOUT_S,
+                   headers={"Authorization": f"Bearer {key}"} if key else {},
+                   json={"model": model, "temperature": 0, "max_tokens": 800,
+                         "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]})
+    r.raise_for_status()
+    text = (r.json()["choices"][0]["message"].get("content") or "").strip()
+    return (text or None), f"{model} · {PROMPT_VERSION}"
+
+
+def generate(f: ComputedFacts, scope: str) -> tuple[str | None, str]:
+    """Return (text, note). text is None when no model could answer. Never raises."""
+    name, why = provider()
+    if name == "off":
+        return None, why
+    user = _messages(f, scope)
+    try:
+        return {"anthropic": _anthropic, "ollama": _ollama, "openai_compatible": _openai_compatible}[name](user)
+    except httpx.TimeoutException:
+        return None, f"language model ({name}) timed out"
+    except httpx.HTTPStatusError as e:
+        return None, f"language model ({name}) error {e.response.status_code}"
+    except (httpx.HTTPError, KeyError, IndexError, ValueError, TypeError) as e:
+        return None, f"language model ({name}) unavailable: {type(e).__name__}"
