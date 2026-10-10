@@ -149,6 +149,11 @@ invalidated. Prefer a fallback chain (item → parent → none) over crashing.
 ## Trust
 
 ### M5 · Grounding gate + template fallback ⭐ (the crown jewel)
+> **Base-product upgrade:** GreenIQ implements this gate with **structured outputs and
+> per-sentence `fact_ids` citations** (`11` §8.3). Numbers must match a fact *the
+> sentence cites*, which is stricter than the allow-list matching described below. The
+> gotchas below still apply.
+
 **Pattern.** The engine derives facts. The model **only phrases** them, and its output is
 **accepted only if it passes a gate**: (1) **every number** in the text appears in the
 facts payload, (2) **every reference** (an entity the facts can name) points at

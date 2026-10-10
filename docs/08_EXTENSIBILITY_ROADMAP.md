@@ -1,6 +1,6 @@
 # 08 · Extensibility Roadmap
 
-> The starter build is a **platform**, not a demo. This page lists the extension points
+> The base product is a **platform**, not a demo. This page lists the extension points
 > it must expose and the advanced features we expect to plug into them later, so
 > nobody has to reopen the core to add them.
 
@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart LR
-    subgraph T1["Tier 1 · Starter (this build)"]
+    subgraph T1["Tier 1 · Base product (this build)"]
         direction TB
         s1["All PS2 outputs at a transparent baseline"]
         s2["Receipts · insufficiency states"]
@@ -43,17 +43,17 @@ flowchart LR
     class p1,p2,p3,p4 t3;
 ```
 
-## 2. Extension points (the starter must expose these)
+## 2. Extension points (the base product must expose these)
 
-| Seam | Starter provider | Plug-in later | Must not change |
+| Seam | Base-product provider (see `11`) | Plug-in later | Must not change |
 |---|---|---|---|
 | **Data source** | generator / file loader | real public datasets, partner feeds | the HomeState contract |
 | **Score mapping** | documented rule tables | calibrated (still monotonic) mappings | PS weights, bands, monotonicity |
 | **Energy** | transparent per-fuel model | ML regressors per fuel | per-fuel outputs + receipts |
 | **Retrofit ranking** | applicability + ordering rules | learned relevance, cost-benefit | feasibility-first; H/M/L output |
 | **Value** | rating-premium band | regression with intervals | range output; non-causal framing |
-| **Narrator** | templates | LLM behind the gate (any vendor/model) | the gate; facts-only input |
-| **Memory** | stub / simple store | richer preference model | engines still compute every number |
+| **Narrator** | templates + `claude-opus-5-5` behind the citation-bound verifier | other models/vendors | the verifier; facts-only input |
+| **Memory** | deferred (seam reserved) | customer memory with visible adaptation | engines still compute every number |
 | **Optimiser** | — | best package under a budget/constraints | reuses the engines; no new maths in language |
 
 ## 3. Advanced feature backlog

@@ -58,7 +58,10 @@ flowchart LR
     R --> HP["Held-out predictions + schema"]
 ```
 
-| Area | What to measure (choose exact metrics in an ADR) | Compared against |
+> Exact metrics, baselines and data per area are **fixed in
+> [`11_IMPLEMENTATION_SPEC.md`](11_IMPLEMENTATION_SPEC.md) §12.2**; this table is the rationale.
+
+| Area | What to measure | Compared against |
 |---|---|---|
 | **Score** | Monotonicity (pass/fail across perturbations), distribution sanity, a worked example matching the PS2 narrative | — (deterministic) |
 | **Energy (per fuel)** | Error and fit on held-out homes, **reported separately for electricity and gas** | A naive baseline (e.g. peer-group mean intensity × area) |
@@ -69,9 +72,11 @@ flowchart LR
 | **Language** | **Grounded rate ≥ 90% · factual accuracy ≥ 90% · unsupported claims < 5%**, plus gate rejection rate and an adversarial suite | Ungated LLM (to show what the gate buys) |
 | **System** | Response time of deterministic vs language paths; language cost per explanation | — |
 
-**How to score language outputs (reproducibly):** split each explanation into atomic
-claims; for each claim, check whether it is supported by the facts (number match or
-entity match). That gives you grounded = supported/total, accuracy = correct/total and
+**How to score language outputs (reproducibly):** the model returns structured
+sentences, each citing the `fact_ids` it relies on (`11` §8.2). For each claim, check
+that the cited facts exist and that every number matches the display value of a fact
+*that sentence cites* (`11` §8.3). Citations bind, so naive "the number appears
+somewhere" matching is not enough. That gives you grounded = supported/total, accuracy = correct/total and
 unsupported = unsupported/total. Keep the evaluation set fixed and versioned, and include
 deliberately adversarial prompts (asks for numbers that don't exist, pressure for
 guarantees, causal value claims).

@@ -1,8 +1,8 @@
 # 04 · Runtime Flows
 
 > How a request actually moves through the system. These sequences define the
-> **behaviour** the starter build must have. Participant names are roles, not file
-> names.
+> **behaviour** the base product must have. Participant names are roles, not file
+> names. Exact routes and payloads: [`11_IMPLEMENTATION_SPEC.md`](11_IMPLEMENTATION_SPEC.md) §8–§9.
 
 ---
 
@@ -129,6 +129,11 @@ sequenceDiagram
 ---
 
 ## The grounding gate (decision logic)
+
+> **Implementation note:** the base product uses **structured, citation-bound
+> verification** (`11` §8.3). Each LLM sentence carries `fact_ids`, and each number must
+> match the display value of a fact that sentence cites. The diagram below shows the
+> checks in order; "found in facts" means "found in the sentence's cited facts".
 
 ```mermaid
 flowchart TD

@@ -1,9 +1,9 @@
 # 03 · Architecture
 
 > The **shape** of GreenIQ: layers, components, contracts, seams and boundaries. This
-> fixes *structure and responsibilities*, not implementations. The build team picks the
-> concrete methods after research ([`05_RESEARCH_PLAYBOOK.md`](05_RESEARCH_PLAYBOOK.md))
-> and records each choice as an ADR.
+> fixes *structure and responsibilities*. **The concrete methods, stack, schemas, routes
+> and screens are fixed in [`11_IMPLEMENTATION_SPEC.md`](11_IMPLEMENTATION_SPEC.md)**
+> (decisions: [ADR-002](adr/ADR-002-base-product-decisions.md)).
 
 ![GreenIQ system at a glance](assets/greeniq-system.svg)
 
@@ -106,10 +106,10 @@ flowchart LR
 ## 3. Component responsibilities
 
 Each component has a contract (what it takes in and gives back) and two levels of
-implementation. **Baseline** = transparent, rule-based, ships in the starter.
-**Advanced** = what research may justify later, behind the same interface.
+implementation. **Baseline** = transparent, documented, ships in the base product (exact
+methods in `11`). **Advanced** = what may justify itself later, behind the same interface.
 
-| Component | Responsibility | Consumes → Produces | Baseline (starter) | Advanced (later, if it beats baseline) | Reqs |
+| Component | Responsibility | Consumes → Produces | Baseline (base product) | Advanced (later, if it beats baseline) | Reqs |
 |---|---|---|---|---|---|
 | **Ingest & validate** | Load sources, validate the schema, flag conflicts | raw tables → validated records | schema validation + rule checks | richer conflict resolution, real-data loaders | DR-1..7 |
 | **Feature layer** | Annualise per fuel, compute intensity, benchmark vs peers, flag missingness | records → HomeState | documented annualisation + peer-group benchmark | learned imputation with uncertainty | DR-5, FR-2 |
@@ -194,7 +194,7 @@ facts object, which is diffed against the old one); every numeric field has a re
 ## 5. The provider-seam pattern
 
 Every intelligent step uses the same pattern, so advanced work never destabilises the
-starter.
+base product.
 
 ```mermaid
 flowchart LR
@@ -261,7 +261,7 @@ don't re-derive it.
 |---|---|
 | **Grounding gate + template fallback** | Hits ER-4 (≥90% grounded, <5% unsupported) by construction, not by hoping |
 | **Shared schema as team contract** | Parallel work without integration chaos |
-| **Provider seams with guaranteed fallback** | Starter stays green while advanced work happens |
+| **Provider seams with guaranteed fallback** | Base product stays green while advanced work happens |
 | **Per-output receipts / provenance** | "Show why it got this score" (FR-1) and explainability scoring |
 | **Decision layer** (score → band → review/insufficiency queue) | Honest handling of missing/conflicting data (ER-5) |
 | **Peer-baseline / percentile lane** | Fair intensity scoring ("big house ≠ inefficient") and "compare to similar homes" |

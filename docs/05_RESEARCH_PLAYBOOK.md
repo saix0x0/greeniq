@@ -1,8 +1,29 @@
 # 05 · Research Playbook
 
-> The build team **researches before it decides.** This playbook says *what to find out,
-> where to look, how to judge it, and how to turn findings into decisions*, without
-> deciding for you. Research is **proportionate**: it serves the build, it doesn't replace it.
+> **Status: RESOLVED for the base product.** RQ-1…RQ-11 below were answered by the
+> architecture finalisation and are fixed in
+> [`11_IMPLEMENTATION_SPEC.md`](11_IMPLEMENTATION_SPEC.md) and
+> [ADR-002](adr/ADR-002-base-product-decisions.md). The build session does **not**
+> re-research them. It only confirms values tagged [E?]. Keep this playbook for **future
+> improvements** (advanced providers behind the seams).
+>
+> | RQ | Resolved in `11` |
+> |---|---|
+> | RQ-1 sub-score mappings | §5.2 |
+> | RQ-2 fair intensity benchmark | §5.2 (peer medians, TRAIN only) |
+> | RQ-3 energy model + interactions | §6.2, §6.5 |
+> | RQ-4 retrofit catalogue + ordering | §6.4 |
+> | RQ-5 emission factors | §6.7 (DESNZ 2026) |
+> | RQ-6 value method | §7 |
+> | RQ-7 data | §3 (NEED 2026 + augmentation) |
+> | RQ-8 LLM + grounding | §8 |
+> | RQ-9 measuring grounding | §8.3, §12.2 |
+> | RQ-10 stack | §1–§2 |
+> | RQ-11 customer memory | deferred (optional in PS2) |
+>
+> The build team **researches before it decides** future upgrades. This playbook says
+> *what to find out, where to look, how to judge it, and how to turn findings into
+> decisions*. Research is **proportionate**: it serves the build, it doesn't replace it.
 
 ```mermaid
 flowchart LR
@@ -34,7 +55,7 @@ flowchart LR
 | RQ-7 | What **data** do we use: synthetic generator design, public datasets, label-generation rules, splits? | DR-1..7 |
 | RQ-8 | Which **language model and prompting pattern** give grounded explanations cheaply? What grounding / claim-verification techniques exist? | FR-7, ER-4 |
 | RQ-9 | How do we **measure** groundedness, factual accuracy and unsupported claims reproducibly? | ER-4, SR-E |
-| RQ-10 | Which **stack** (backend, ML, UI, packaging) gets us a clean, fast, reproducible starter with the least friction? | all |
+| RQ-10 | Which **stack** (backend, ML, UI, packaging) gets us a clean, fast, reproducible base product with the least friction? | all |
 | RQ-11 | What would **customer memory** need in order to visibly change recommendations? | FR-9 |
 
 ## 2. Where to look
