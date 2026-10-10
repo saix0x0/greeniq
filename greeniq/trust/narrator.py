@@ -7,6 +7,8 @@ same facts. This is the default explainer and the fallback whenever no LLM is av
 
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel
 
 from ..facts import ComputedFacts, Impact
@@ -20,10 +22,12 @@ class Sentence(BaseModel):
 
 
 class Explanation(BaseModel):
-    mode: str = "template"
+    mode: str = "template"  # "template" | "llm"
     version: str = NARRATOR_VERSION
     facts_id: str
     sentences: list[Sentence]
+    gate: dict | None = None  # GateResult of the text actually shown
+    note: str | None = None  # why the template was used, or which model wrote it
 
     @property
     def text(self) -> str:
@@ -105,3 +109,24 @@ def explain_package(f: ComputedFacts) -> Explanation:
         s.append(Sentence(text="Not modelled: " + "; ".join(f"{r.name} ({r.reason})" for r in f.scenario.rejected),
                           refs=["scenario.rejected"]))
     return Explanation(facts_id=f.facts_id, sentences=s)
+
+
+def explain(f: ComputedFacts, scope: str = "home") -> Explanation:
+    """Language model if available → grounding gate → template fallback. Always gated."""
+    from .gate import check
+    from .llm import generate
+
+    template = explain_home(f) if scope == "home" else explain_package(f)
+    gate_scope = "home" if scope == "home" else "package"
+    text, note = generate(f, scope)
+    if text:
+        g = check(text, f, gate_scope)
+        if g.passed:
+            sents = [Sentence(text=t, refs=sorted({c.matched for c in g.claims if c.matched and c.text in t}))
+                     for t in re.split(r"(?<=[.!?])\s+", text) if t.strip()]
+            return Explanation(mode="llm", version=note, facts_id=f.facts_id, sentences=sents, gate=g.model_dump(),
+                               note="language model output passed the grounding gate")
+        note = "language model output blocked by the grounding gate: " + "; ".join(v.detail for v in g.violations[:3])
+    template.gate = check(template.text, f, gate_scope).model_dump()
+    template.note = note
+    return template

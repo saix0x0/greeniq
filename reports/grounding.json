@@ -1,0 +1,39 @@
+{
+  "homes": 200,
+  "clean_templates": {
+    "texts": 387,
+    "blocked": 0,
+    "claims": 3952,
+    "grounded": 3952
+  },
+  "corruptions": {
+    "invented_number": {
+      "tried": 187,
+      "caught": 186
+    },
+    "flipped_direction": {
+      "tried": 186,
+      "caught": 186
+    },
+    "causal_value_claim": {
+      "tried": 187,
+      "caught": 187
+    },
+    "off_scenario_measure": {
+      "tried": 135,
+      "caught": 135
+    }
+  },
+  "llm": {
+    "run": false,
+    "homes": 0,
+    "explanations": 0,
+    "passed": 0,
+    "claims": 0,
+    "grounded": 0,
+    "unsupported": 0,
+    "status": "no API key (template narrator)",
+    "failures": []
+  },
+  "seconds": 2.8
+}

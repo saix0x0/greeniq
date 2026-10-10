@@ -90,6 +90,18 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_eval_grounding(args) -> int:
+    from .evaluation.grounding import evaluate_grounding
+
+    o = evaluate_grounding(n_homes=args.n, llm_homes=args.llm)
+    c = o["clean_templates"]
+    print(f"clean templates: {c['blocked']}/{c['texts']} wrongly blocked; corruptions caught: " +
+          ", ".join(f"{k} {v['caught']}/{v['tried']}" for k, v in o["corruptions"].items()))
+    print(f"language model: {'run on ' + str(o['llm']['homes']) + ' homes' if o['llm']['run'] else o['llm']['status']}")
+    print("→ reports/GROUNDING.md")
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -117,6 +129,11 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("property_id")
     a.add_argument("--json", action="store_true", help="print the full ComputedFacts JSON")
     a.set_defaults(func=cmd_analyse)
+
+    gr = sub.add_parser("eval-grounding", help="evaluate the grounding gate (and the LLM if a key is set) → reports/")
+    gr.add_argument("--n", type=int, default=200, help="test homes")
+    gr.add_argument("--llm", type=int, default=0, help="homes to explain with the language model (costs API credits)")
+    gr.set_defaults(func=cmd_eval_grounding)
 
     sv = sub.add_parser("serve", help="run the API and dashboard on one port")
     sv.add_argument("--host", default="127.0.0.1")

@@ -346,3 +346,46 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 - **Deferred on purpose:** benchmarking scatter / outlier residuals (design priority P2, after reference data is defensible).
 - **Tests:** 134 passed (10 new in `tests/test_lab.py`).
 - **Next:** P5 — grounded AI (narrator → grounding gate → template fallback) and the end-to-end edge-case validation.
+
+### 2026-10-10 · P5 (IN PROGRESS) — grounded AI · handoff notes for the next builder
+**State:** committed mid-phase so another session can continue. Tests: **134 passed** (no P5 tests yet).
+Run everything with `env -u PYTHONPATH uv run …`; prefer `python -m greeniq …` (macOS hidden-`.pth` issue, see P1).
+
+**Done (uncommitted work now committed):**
+- `greeniq/trust/gate.py` — grounding gate. Checks every explanation for: numbers (value + unit kind: kWh / t·kg /
+  % / £ / points) against all numbers in ComputedFacts (display-rounding tolerance only; whole numbers ≥ 100 must match
+  exactly); per-fuel direction (strips parentheticals, splits clauses, compares with package saving signs); causal or
+  guaranteed value wording; scenario identity (measures mentioned must be in the package / plan).
+- `greeniq/trust/narrator.py::explain(f, scope)` — LLM if available → gate → template fallback. Always attaches the gate
+  result (`explanation.gate`) and a `note` saying which path was used and why. API property/scenario routes use it.
+- `greeniq/trust/llm.py` + `prompts.py` — optional Claude narrator (`claude-opus-5-5`, effort low, server-side refusal
+  fallback `fallbacks="default"` + beta `server-side-fallback-2026-07-01`). OFF unless `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
+  is set and `uv sync --extra llm` installed `anthropic` (1.13.0 verified to accept these params). `GREENIQ_LLM=off` forces off.
+  The model sees only `fact_sheet()`; never raises; any failure → template.
+- `greeniq/trust/assistant.py` — deterministic what-if parser (measure synonyms; "only/just", "also/as well",
+  "without/no/skip" → declined, "already have/did" → completed, "everything/recommended" → full package).
+- API: `POST /api/properties/{id}/ask {question}` (parse → engine rerun → gated explanation),
+  `GET /api/properties/{id}/gate-demo` (honest text passes; invented number / flipped direction / value promise blocked).
+  `/api/health` now reports the LLM status.
+- `greeniq/evaluation/grounding.py` + `python -m greeniq eval-grounding [--n 200] [--llm K]` → `reports/GROUNDING.md`,
+  `reports/grounding.json`. Current result on 200 test homes: clean templates **0/387 wrongly blocked**; corruptions
+  caught — invented number **186/187**, flipped direction **186/186**, causal value claim **187/187**, off-scenario
+  measure **135/135**. LLM: **not run** (no key) — reported as not run, never estimated.
+
+**Known gap (do this first):** the 1 missed invented number (P01027) coincidentally equals a *different* fact (inflated
+"cuts gas by 16,570 kWh" matched `improvement_potential.e_baseline_kwh`). The gate checks "number exists in facts", not
+"number belongs to the claim". Fix idea: role-aware matching — for a clause with a saving verb + fuel, the number must
+match that fuel's saving / after / baseline paths (`package.impact.<fuel>.*`), not any kWh fact. Re-run eval-grounding.
+
+**Remaining P5 steps:**
+1. Role-aware number matching (above).
+2. Tests: `tests/test_trust.py` — gate passes all templates for every fixture; blocks the 4 corruption types; `explain()`
+   uses the LLM text when it passes and falls back when it fails (monkeypatch `greeniq.trust.llm.generate`); assistant
+   parses the phrasings in `assistant.py`; `/ask` and `/gate-demo` endpoints.
+3. UI (`greeniq/web/app.js`): an "Ask a what-if" box on the property view and Decision Lab (POST /ask, render
+   interpretation + gated explanation + mode badge "template" / "LLM · grounded ✓"); a gate-demo panel on the Evidence page.
+4. End-to-end edge-case sweep (`tests/test_e2e.py`): missing electricity / gas / both meters, zero baseline, conflicting
+   records, infeasible + needs-survey measures, heat pump raising electricity, interacting packages, value unavailable —
+   each through API: report → lab → scenario → explanation, numbers consistent, gate passes.
+5. Docs: `docs/LLM.md` (prompts, model, gate, eval — submission artifact E), `docs/RESPONSIBLE_AI.md` (artifact H);
+   update README status; journal entry; commit + push (`beautiful`, then fast-forward `main`; never force-push).
