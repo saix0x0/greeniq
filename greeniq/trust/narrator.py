@@ -111,22 +111,34 @@ def explain_package(f: ComputedFacts) -> Explanation:
     return Explanation(facts_id=f.facts_id, sentences=s)
 
 
-def explain(f: ComputedFacts, scope: str = "home") -> Explanation:
-    """Language model if available → grounding gate → template fallback. Always gated."""
-    from .gate import check
-    from .llm import generate
+def explain(f: ComputedFacts, scope: str = "home", st: str | None = None) -> Explanation:
+    """Language model if available → grounding gate → template fallback. Always gated.
 
+    hybrid (default): the model writes the plain-English meaning with no numbers; the engine's
+    template sentences follow with every figure. full: the model writes everything.
+    """
+    from .gate import check
+    from .llm import generate, style
+
+    st = st or style()
     template = explain_home(f) if scope == "home" else explain_package(f)
     gate_scope = "home" if scope == "home" else "package"
-    text, note = generate(f, scope)
+    text, note = generate(f, scope, st)
     if text:
-        g = check(text, f, gate_scope)
-        if g.passed:
-            sents = [Sentence(text=t, refs=sorted({c.matched for c in g.claims if c.matched and c.text in t}))
-                     for t in re.split(r"(?<=[.!?])\s+", text) if t.strip()]
-            return Explanation(mode="llm", version=note, facts_id=f.facts_id, sentences=sents, gate=g.model_dump(),
-                               note="language model output passed the grounding gate")
-        note = "language model output blocked by the grounding gate: " + "; ".join(v.detail for v in g.violations[:3])
+        if st == "hybrid" and re.search(r"\d", text):
+            note = "language model output blocked: hybrid mode lets only the engine state numbers"
+        else:
+            shown = f"{text} {template.text}" if st == "hybrid" else text
+            g = check(shown, f, gate_scope)
+            if g.passed:
+                own = [Sentence(text=s, refs=[] if st == "hybrid" else
+                                sorted({c.matched for c in g.claims if c.matched and c.text in s}))
+                       for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+                sents = own + (template.sentences if st == "hybrid" else [])
+                return Explanation(mode="llm", version=note, facts_id=f.facts_id, sentences=sents, gate=g.model_dump(),
+                                   note=("language model wrote the explanation; every figure comes from the engine"
+                                         if st == "hybrid" else "language model output passed the grounding gate"))
+            note = "language model output blocked by the grounding gate: " + "; ".join(v.detail for v in g.violations[:3])
     template.gate = check(template.text, f, gate_scope).model_dump()
     template.note = note
     return template

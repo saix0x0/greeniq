@@ -7,6 +7,8 @@ to misbehave the way real models do, to prove the grounding gate catches it.
 
 Modes:
     honest       paraphrases the facts correctly, in different words from the template
+    meaning      a digit-free explanation of what the facts mean (hybrid mode)
+    meaning_flip the same, but says electricity falls when it rises
     invent       inflates a saving (a hallucinated number)
     flip         says electricity falls when the facts say it rises (the heat-pump trap)
     promise      adds "this will increase your home's value"
@@ -38,6 +40,15 @@ def _facts(user: str) -> dict:
 
 def reply(user: str, mode: str) -> str:
     f = _facts(user)
+    if mode.startswith("meaning"):
+        pk = f.get("package") or {}
+        rises = "RISES" in (pk.get("electricity", {}).get("change") or "")
+        if rises and mode == "meaning_flip":
+            return "A heat pump makes your electricity use fall and your gas use fall too."
+        if rises:
+            return ("Heat would come from electricity instead of gas, so electricity use goes up while gas use falls "
+                    "by much more. Insulating first means the heat pump has less work to do.")
+        return "Most of the gain comes from keeping heat in, so the home needs less energy to stay warm."
     s = f.get("score", {})
     parts = []
     if s.get("score") is not None:

@@ -24,7 +24,7 @@ import os
 import httpx
 
 from ..facts import ComputedFacts
-from .prompts import PROMPT_VERSION, SYSTEM_PROMPT, USER_TEMPLATE
+from .prompts import HYBRID_PROMPT_VERSION, HYBRID_SYSTEM_PROMPT, PROMPT_VERSION, SYSTEM_PROMPT, USER_TEMPLATE
 
 CLAUDE_MODEL = "claude-opus-5-5"
 TIMEOUT_S = float(os.environ.get("GREENIQ_LLM_TIMEOUT_S", "60"))
@@ -154,7 +154,18 @@ def _messages(f: ComputedFacts, scope: str) -> str:
                                 facts_json=json.dumps(fact_sheet(f, scope), sort_keys=True))
 
 
-def _anthropic(user: str) -> tuple[str | None, str]:
+def style() -> str:
+    """'hybrid' (default): the model explains meaning, the engine states every number. 'full': the model writes
+    the whole explanation including figures (suits strong models); the gate checks either way."""
+    s = _env("GREENIQ_LLM_STYLE", "hybrid").lower()
+    return s if s in ("hybrid", "full") else "hybrid"
+
+
+def _prompt(st: str) -> tuple[str, str]:
+    return (HYBRID_SYSTEM_PROMPT, HYBRID_PROMPT_VERSION) if st == "hybrid" else (SYSTEM_PROMPT, PROMPT_VERSION)
+
+
+def _anthropic(user: str, st: str = "full") -> tuple[str | None, str]:
     import anthropic
 
     model = _env("GREENIQ_LLM_MODEL", CLAUDE_MODEL)
@@ -166,7 +177,7 @@ def _anthropic(user: str) -> tuple[str | None, str]:
             output_config={"effort": "low"},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",  # server-side refusal fallback routed by category
-            system=SYSTEM_PROMPT,
+            system=_prompt(st)[0],
             messages=[{"role": "user", "content": user}],
         )
     except anthropic.APIConnectionError:
@@ -178,40 +189,41 @@ def _anthropic(user: str) -> tuple[str | None, str]:
     if resp.stop_reason == "refusal":
         return None, "language model declined"
     text = " ".join(b.text for b in resp.content if b.type == "text").strip()
-    return (text or None), f"{resp.model} · {PROMPT_VERSION}"
+    return (text or None), f"{resp.model} · {_prompt(st)[1]}"
 
 
-def _ollama(user: str) -> tuple[str | None, str]:
+def _ollama(user: str, st: str = "full") -> tuple[str | None, str]:
     model = _ollama_model()
     r = httpx.post(f"{_ollama_url()}/api/chat", timeout=TIMEOUT_S, json={
         "model": model, "stream": False,
         "options": {"temperature": 0, "seed": 42},  # deterministic, so a result can be reproduced
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+        "messages": [{"role": "system", "content": _prompt(st)[0]}, {"role": "user", "content": user}],
     })
     r.raise_for_status()
     text = (r.json().get("message") or {}).get("content", "").strip()
-    return (text or None), f"ollama/{model} · {PROMPT_VERSION}"
+    return (text or None), f"ollama/{model} · {_prompt(st)[1]}"
 
 
-def _openai_compatible(user: str) -> tuple[str | None, str]:
+def _openai_compatible(user: str, st: str = "full") -> tuple[str | None, str]:
     base, model, key = _env("GREENIQ_LLM_BASE_URL").rstrip("/"), _env("GREENIQ_LLM_MODEL"), _env("GREENIQ_LLM_API_KEY")
     r = httpx.post(f"{base}/chat/completions", timeout=TIMEOUT_S,
                    headers={"Authorization": f"Bearer {key}"} if key else {},
                    json={"model": model, "temperature": 0, "max_tokens": 800,
-                         "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]})
+                         "messages": [{"role": "system", "content": _prompt(st)[0]}, {"role": "user", "content": user}]})
     r.raise_for_status()
     text = (r.json()["choices"][0]["message"].get("content") or "").strip()
-    return (text or None), f"{model} · {PROMPT_VERSION}"
+    return (text or None), f"{model} · {_prompt(st)[1]}"
 
 
-def generate(f: ComputedFacts, scope: str) -> tuple[str | None, str]:
+def generate(f: ComputedFacts, scope: str, st: str | None = None) -> tuple[str | None, str]:
     """Return (text, note). text is None when no model could answer. Never raises."""
     name, why = provider()
     if name == "off":
         return None, why
     user = _messages(f, scope)
     try:
-        return {"anthropic": _anthropic, "ollama": _ollama, "openai_compatible": _openai_compatible}[name](user)
+        fn = {"anthropic": _anthropic, "ollama": _ollama, "openai_compatible": _openai_compatible}[name]
+        return fn(user, st or style())
     except httpx.TimeoutException:
         return None, f"language model ({name}) timed out"
     except httpx.HTTPStatusError as e:

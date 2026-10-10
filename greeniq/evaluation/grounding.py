@@ -56,8 +56,10 @@ def evaluate_grounding(n_homes: int = 200, llm_homes: int = 0) -> dict:
     ids = [p for p in test[test["split"] == "test"]["property_id"].tolist() if p in set(ds.property_ids)][:n_homes]
     clean = {"texts": 0, "blocked": 0, "claims": 0, "grounded": 0}
     corrupt = {k: {"tried": 0, "caught": 0} for k in ("invented_number", "flipped_direction", "causal_value_claim", "off_scenario_measure")}
-    llm = {"run": False, "homes": 0, "explanations": 0, "passed": 0, "claims": 0, "grounded": 0, "unsupported": 0,
-           "status": llm_status()[1], "failures": []}
+    def _blank():
+        return {"run": False, "homes": 0, "explanations": 0, "passed": 0, "claims": 0, "grounded": 0, "unsupported": 0,
+                "status": llm_status()[1], "failures": [], "violations": {}}
+    by_style = {"hybrid": _blank(), "full": _blank()}
     for i, pid in enumerate(ids):
         f = analyse_home(ds.property(pid), ctx)
         for scope, e in (("home", explain_home(f)), ("package", explain_package(f) if f.package else None)):
@@ -80,21 +82,34 @@ def evaluate_grounding(n_homes: int = 200, llm_homes: int = 0) -> dict:
                 corrupt[k]["tried"] += 1
                 corrupt[k]["caught"] += not check(t, f, "package").passed
         if i < llm_homes and llm_status()[0]:
-            llm["run"] = True
-            llm["homes"] += 1
-            for scope in ("home", "package") if f.package else ("home",):
-                text, note = generate(f, scope)
-                if not text:
-                    llm["failures"].append(f"{pid}/{scope}: {note}")
-                    continue
-                g = check(text, f, scope)
-                llm["explanations"] += 1
-                llm["passed"] += g.passed
-                scored = [c for c in g.claims if c.status != "exempt"]
-                llm["claims"] += len(scored)
-                llm["grounded"] += sum(c.status == "grounded" for c in scored)
-                llm["unsupported"] += sum(c.status == "unsupported" for c in scored)
-    out = {"homes": len(ids), "clean_templates": clean, "corruptions": corrupt, "llm": llm,
+            for st, llm in by_style.items():
+                llm["run"] = True
+                llm["homes"] += 1
+                for scope in ("home", "package") if f.package else ("home",):
+                    text, note = generate(f, scope, st)
+                    if not text:
+                        llm["failures"].append(f"{pid}/{scope}: {note}")
+                        continue
+                    if st == "hybrid":
+                        tmpl = (explain_home(f) if scope == "home" else explain_package(f)).text
+                        digits = bool(re.search(r"\d", text))
+                        g = check(f"{text} {tmpl}", f, scope)
+                        ok = g.passed and not digits
+                        if digits:
+                            llm["violations"]["model_wrote_a_number"] = llm["violations"].get("model_wrote_a_number", 0) + 1
+                    else:
+                        g = check(text, f, scope)
+                        ok = g.passed
+                    for v in g.violations:
+                        llm["violations"][v.kind] = llm["violations"].get(v.kind, 0) + 1
+                    llm["explanations"] += 1
+                    llm["passed"] += ok
+                    scored = [c for c in g.claims if c.status != "exempt"]
+                    llm["claims"] += len(scored)
+                    llm["grounded"] += sum(c.status == "grounded" for c in scored)
+                    llm["unsupported"] += sum(c.status == "unsupported" for c in scored)
+    out = {"homes": len(ids), "clean_templates": clean, "corruptions": corrupt, "llm": by_style["hybrid"],
+           "llm_by_style": by_style,
            "seconds": round(time.time() - t0, 1)}
     REPORTS.mkdir(exist_ok=True)
     (REPORTS / "grounding.json").write_text(json.dumps(out, indent=2))
@@ -107,16 +122,27 @@ def _pct(a, b):
 
 
 def _markdown(o: dict) -> str:
-    c, L = o["clean_templates"], o["llm"]
+    c = o["clean_templates"]
     rows = "\n".join(f"| {k.replace('_', ' ')} | {v['tried']} | {v['caught']} | {_pct(v['caught'], v['tried'])} |"
                      for k, v in o["corruptions"].items())
-    if L["run"]:
-        llm_txt = (f"| Claims grounded (target ≥ 90%) | {_pct(L['grounded'], L['claims'])} |\n"
-                   f"| Explanations passing the gate = factually accurate (target ≥ 90%) | {_pct(L['passed'], L['explanations'])} |\n"
-                   f"| Unsupported claims (target < 5%) | {_pct(L['unsupported'], L['claims'])} |\n"
-                   f"| Homes / explanations | {L['homes']} / {L['explanations']} |")
+    S = o.get("llm_by_style", {"full": o["llm"]})
+    if any(L["run"] for L in S.values()):
+        lines = ["| Metric | " + " | ".join(f"{k} style" for k in S) + " | Target |", "|---|" + "---|" * len(S) + "---|"]
+        lines.append("| Explanations passing the gate (= factually accurate) | " + " | ".join(
+            f"{_pct(L['passed'], L['explanations'])} ({L['passed']}/{L['explanations']})" for L in S.values()) + " | ≥ 90% |")
+        lines.append("| Numeric claims grounded | " + " | ".join(_pct(L["grounded"], L["claims"]) for L in S.values()) + " | ≥ 90% |")
+        lines.append("| Unsupported claims | " + " | ".join(_pct(L["unsupported"], L["claims"]) for L in S.values()) + " | < 5% |")
+        lines.append("| Why blocked | " + " | ".join(", ".join(f"{k} {v}" for k, v in L["violations"].items()) or "—" for L in S.values()) + " | |")
+        lines.append("| Model | " + " | ".join(L["status"] for L in S.values()) + " | |")
+        llm_txt = "\n".join(lines) + f"""
+
+**Styles.** *full*: the model writes the whole explanation, figures included. *hybrid* (default): the model writes
+only the plain-English meaning with **no numbers**, and the engine's template sentences supply every figure (the
+brief's "models calculate, the LLM explains", applied literally). In hybrid style the numeric claims are the
+engine's own, so the meaningful measure is the pass rate (direction, scenario and value wording, no digits).
+What users see is always gated: a failed explanation is replaced by the template."""
     else:
-        llm_txt = f"| Not run | {L['status']}. No numbers are reported rather than invented. |"
+        llm_txt = f"| Not run | {o['llm']['status']}. No numbers are reported rather than invented. |\n|---|---|"
     return f"""# Grounded language evaluation (ER-4)
 
 > Generated by `uv run python -m greeniq eval-grounding` on {o['homes']} held-out test homes in {o['seconds']} s.
@@ -138,10 +164,8 @@ def _markdown(o: dict) -> str:
 |---|---|---|---|
 {rows}
 
-## 3. Language-model explanations
+## 3. Language-model explanations (a real model, when one is configured)
 
-| Metric | Value |
-|---|---|
 {llm_txt}
 
 ## Limitations

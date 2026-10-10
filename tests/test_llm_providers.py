@@ -39,6 +39,7 @@ def ollama(monkeypatch):
         monkeypatch.setenv("GREENIQ_OLLAMA_URL", srv.url)
         monkeypatch.setenv("GREENIQ_LLM_TIMEOUT_S", "1")
         monkeypatch.setattr(llm, "TIMEOUT_S", 1.0)
+        monkeypatch.setenv("GREENIQ_LLM_STYLE", "full")
         llm._CACHE.clear()
         yield srv
     llm._CACHE.clear()
@@ -99,6 +100,7 @@ def test_openai_compatible_endpoint_with_key(monkeypatch, hp):
         monkeypatch.setenv("GREENIQ_LLM_BASE_URL", srv.url + "/v1")
         monkeypatch.setenv("GREENIQ_LLM_MODEL", "free-tier-model")
         monkeypatch.setenv("GREENIQ_LLM_API_KEY", "test-key")
+        monkeypatch.setenv("GREENIQ_LLM_STYLE", "full")
         llm._CACHE.clear()
         e = explain(hp, "package")
         assert e.mode == "llm" and e.gate["passed"]
@@ -123,6 +125,19 @@ def test_grounding_eval_runs_the_model_path(ollama, monkeypatch, tmp_path):
     from greeniq.evaluation import grounding
     monkeypatch.setattr(grounding, "REPORTS", tmp_path)
     o = grounding.evaluate_grounding(n_homes=6, llm_homes=6)
-    L = o["llm"]
-    assert L["run"] and L["explanations"] > 0
-    assert L["passed"] == L["explanations"]  # the honest stand-in is fully grounded
+    full = o["llm_by_style"]["full"]
+    assert full["run"] and full["explanations"] > 0
+    assert full["passed"] == full["explanations"]  # the honest stand-in is fully grounded in full style
+    assert o["llm_by_style"]["hybrid"]["run"]  # hybrid measured too (it refuses the stand-in's digits)
+
+
+def test_hybrid_style_through_real_http(ollama, hp, monkeypatch):
+    monkeypatch.setenv("GREENIQ_LLM_STYLE", "hybrid")
+    ollama.set_mode("meaning")
+    e = explain(hp, "package")
+    assert e.mode == "llm" and e.gate["passed"] and "hybrid" in e.version
+    assert "Do NOT write any numbers" in ollama.requests[-1]["body"]["messages"][0]["content"]
+    ollama.set_mode("meaning_flip")
+    assert explain(hp, "package").mode == "template"
+    ollama.set_mode("honest")  # numbers in hybrid mode are refused
+    assert explain(hp, "package").mode == "template"

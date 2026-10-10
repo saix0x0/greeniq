@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from ..facts import ComputedFacts
 
-GATE_VERSION = "grounding-gate/1.2"
+GATE_VERSION = "grounding-gate/1.3"
 
 MEASURE_WORDS = {
     "air_source_heat_pump": r"heat[- ]pumps?",
@@ -210,10 +210,24 @@ def check_scenario(text: str, f: ComputedFacts, scope: Literal["home", "package"
     return out
 
 
+NEGATION = re.compile(r"\b(not|no|never|nor|without|cannot|can't|won't|doesn't|does not|isn't|is not)\b[^.;]{0,30}$",
+                      re.IGNORECASE)
+
+
+def causal_claims(text: str) -> list[str]:
+    """Value promises, ignoring negated disclaimers ("not a guarantee", "does not prove")."""
+    out = []
+    for m in re.finditer(CAUSAL, text, flags=re.IGNORECASE):
+        before = text[max(0, m.start() - 40):m.start()]
+        if not NEGATION.search(before):
+            out.append(m.group(0))
+    return out
+
+
 def check(text: str, f: ComputedFacts, scope: Literal["home", "package"] = "package") -> GateResult:
     claims, viol = check_numbers(text, f)
     viol += check_direction(text, f)
-    if re.search(CAUSAL, text, flags=re.IGNORECASE):
+    if causal_claims(text):
         viol.append(Violation(kind="causal_claim", detail="states a guaranteed or causal value effect"))
     viol += check_scenario(text, f, scope)
     scored = [c for c in claims if c.status != "exempt"]

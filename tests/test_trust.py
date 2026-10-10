@@ -88,22 +88,24 @@ def test_no_key_means_template_and_gated(hp, monkeypatch):
 
 
 def test_model_text_that_fails_the_gate_is_never_shown(hp, monkeypatch):
+    monkeypatch.setenv("GREENIQ_LLM_STYLE", "full")
     monkeypatch.setattr("greeniq.trust.llm.generate",
-                        lambda f, scope: ("Electricity falls by 9,999 kWh and your home will be worth more.", "fake"))
+                        lambda f, scope, st=None: ("Electricity falls by 9,999 kWh and your home will be worth more.", "fake"))
     e = explain(hp, "package")
     assert e.mode == "template" and "blocked" in e.note
     assert "9,999" not in e.text
 
 
 def test_model_text_that_passes_is_shown(hp, monkeypatch):
+    monkeypatch.setenv("GREENIQ_LLM_STYLE", "full")
     honest = explain_package(hp).text
-    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope: (honest, "fake-model"))
+    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope, st=None: (honest, "fake-model"))
     e = explain(hp, "package")
     assert e.mode == "llm" and e.gate["passed"]
 
 
 def test_model_failure_falls_back(hp, monkeypatch):
-    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope: (None, "language model unreachable"))
+    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope, st=None: (None, "language model unreachable"))
     e = explain(hp, "package")
     assert e.mode == "template" and e.note == "language model unreachable"
     assert narrator  # module imported
@@ -148,3 +150,24 @@ def test_gate_demo_passes_honest_and_blocks_corruptions(client):
     cases = client.get("/api/properties/P00007/gate-demo").json()["cases"]
     assert cases[0]["gate"]["passed"]
     assert all(not c["gate"]["passed"] for c in cases[1:])
+
+
+def test_hybrid_mode_model_explains_meaning_engine_states_numbers(hp, monkeypatch):
+    monkeypatch.setenv("GREENIQ_LLM_STYLE", "hybrid")
+    meaning = "Heat now comes from electricity, so electricity use goes up while gas use falls by much more."
+    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope, st=None: (meaning, "fake"))
+    e = explain(hp, "package")
+    assert e.mode == "llm" and e.gate["passed"]
+    assert e.sentences[0].text == meaning and explain_package(hp).sentences[1].text in e.text  # engine figures follow
+
+
+def test_hybrid_mode_blocks_any_model_number(hp, monkeypatch):
+    monkeypatch.setenv("GREENIQ_LLM_STYLE", "hybrid")
+    monkeypatch.setattr("greeniq.trust.llm.generate", lambda f, scope, st=None: ("It saves 1,780 kWh.", "fake"))
+    e = explain(hp, "package")
+    assert e.mode == "template" and "only the engine" in e.note
+
+
+def test_disclaimers_are_not_mistaken_for_value_promises(hp):
+    assert check("This is not a guarantee of a price increase.", hp, "package").passed
+    assert not check("This will increase your home's value.", hp, "package").passed
