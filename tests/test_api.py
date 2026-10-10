@@ -30,6 +30,53 @@ def test_portfolio_kpis_are_consistent_with_rows(client):
     assert op["electricity_gwh"] < 0 < op["gas_gwh"]  # heat pumps: electricity up, gas down
 
 
+def test_portfolio_populations_reconcile(client):
+    """Lock the exact denominators the lender UI displays, so no count is unexplained.
+
+    Three metrics use three deliberately different populations; every home is still
+    accounted for. See the Lender workspace "why the counts differ" note.
+    """
+    p = client.get("/api/portfolio").json()
+    n = p["n_homes"]
+    dist = p["band_distribution"]["all"]
+    bands = ["Very poor", "Poor", "Moderate", "Good", "Highly efficient"]
+    classified = sum(dist[b] for b in bands)
+    undetermined = dist["Undetermined"]
+    k = p["kpis"]
+
+    # every home is in exactly one bucket of the band distribution
+    assert classified + undetermined == n
+
+    # the average's population is disclosed and complete
+    assert k["avg_score"]["n"] + k["avg_score"]["excluded"] == n
+
+    # pull every row (the list endpoint caps at 500) and recompute independently
+    rows = []
+    for off in range(0, n, 500):
+        rows += client.get(f"/api/properties?limit=500&offset={off}").json()["items"]
+    assert len(rows) == n
+
+    point_scored = [r for r in rows if r["score"] is not None]
+    banded = [r for r in rows if r["band"]]
+    poor_flagged = [r for r in rows if r["is_poor"]]
+    poor_known = [r for r in rows if r["is_poor"] is not None]
+    banded_poor = [r for r in rows if r["band"] in ("Very poor", "Poor")]
+
+    # the KPI denominators match an independent recomputation from the rows
+    assert len(point_scored) == k["avg_score"]["n"]
+    assert len(banded) == classified
+    assert len(poor_flagged) == k["poor_pct"]["count"]
+    assert len(poor_known) == k["poor_pct"]["n"]
+
+    # the documented nuances: average excludes some banded (partial-but-in-one-band)
+    # homes, and poor-flagged includes some partial homes with no final band.
+    assert len(banded) >= len(point_scored)
+    assert all(r["score_status"] == "partial" for r in banded if r["score"] is None)
+    extra_poor = [r for r in poor_flagged if r["band"] not in ("Very poor", "Poor")]
+    assert len(banded_poor) + len(extra_poor) == len(poor_flagged)
+    assert all(r["score"] is None for r in extra_poor)  # only partial homes
+
+
 def test_search_filters(client):
     r = client.get("/api/properties?band=Poor&region=north&limit=500").json()
     assert r["total"] > 0 and all(x["band"] == "Poor" and x["region"] == "north" for x in r["items"])

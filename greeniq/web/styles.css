@@ -352,6 +352,30 @@ table.data tr.clickable { cursor: pointer; }
 
 /* lender */
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.kpi-def { cursor: help; border-bottom: 1px dotted var(--line-2); }
+
+/* ---------- comparison charts ---------- */
+.cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .cmp-grid { grid-template-columns: 1fr; } }
+.cmp-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.cmp-fuel { margin: 14px 0; }
+.cmp-fuel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.cmp-dot { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.cmp-val { font-size: 11px; font-weight: 600; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.cmp-val.muted { fill: var(--ink-3); font-weight: 500; }
+.cmp-cnt { font-size: 10.5px; font-weight: 700; fill: var(--ink-2); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.cmp-axis { font-size: 9.5px; fill: var(--ink-3); text-anchor: middle; }
+.cmp-legend { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+.cmp-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+.cmp-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+/* percentile / standing track */
+.pct-track { position: relative; height: 34px; margin: 18px 0 8px; }
+.pct-rail { position: absolute; top: 14px; left: 0; right: 0; height: 7px; border-radius: 5px;
+  background: linear-gradient(90deg, var(--b-vp), var(--b-p), var(--b-m), var(--b-g), var(--b-he)); opacity: .55; }
+.pct-mark { position: absolute; top: 4px; width: 3px; height: 27px; background: var(--ink); border-radius: 3px; transform: translateX(-50%); }
+.pct-mark::after { content: attr(data-label); position: absolute; top: -17px; left: 50%; transform: translateX(-50%); font-size: 10.5px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.pct-tick { position: absolute; top: 10px; width: 2px; height: 15px; background: var(--ink-3); transform: translateX(-50%); }
+.pct-tick::after { content: attr(data-label); position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; }
 
 /* responsive sidebar */
 @media (max-width: 820px) {

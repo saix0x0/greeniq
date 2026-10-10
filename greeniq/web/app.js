@@ -84,9 +84,10 @@ async function loadFacts(pid, { fresh = false } = {}) {
 }
 const clearFacts = () => factsCache.clear();
 
-let HEALTH = null, PROPS = null;
+let HEALTH = null, PROPS = null, PORTFOLIO = null;
 async function getHealth() { return HEALTH || (HEALTH = await api("/api/health")); }
 async function getProps() { return PROPS || (PROPS = (await api("/api/properties?limit=500&sort=score")).items); }
+async function getPortfolio() { return PORTFOLIO || (PORTFOLIO = await api("/api/portfolio")); }
 
 // async render into a container with loading / error / retry
 async function mount(el, fn, { label = "the engine" } = {}) {
@@ -246,12 +247,76 @@ async function fillSampleHomes() {
   } catch (e) { $("#sample-homes").innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
 }
 
+// ──────────────────────────────────────────────────────────── comparison charts
+// Every value comes from the engine (/standing, facts.peer, /portfolio). Opower-style
+// peer comparison, framed as guidance; no dual-axis, no pie.
+function peerCompare(fuels) {
+  const rows = (fuels || []).filter((f) => f.actual_kwh != null && f.peer_median_kwh != null);
+  if (!rows.length) return `<p class="muted small">No metered peer comparison for this home.</p>`;
+  const max = Math.max(...rows.flatMap((f) => [f.actual_kwh, f.peer_median_kwh]), 1);
+  return rows.map((f) => {
+    const col = f.fuel === "gas" ? "var(--gas)" : "var(--elec)";
+    const above = f.actual_kwh > f.peer_median_kwh;
+    const diff = Math.abs((f.ratio_to_median ?? 1) - 1) * 100;
+    return `<div class="cmp-fuel">
+      <div class="cmp-fuel-head"><span class="cmp-dot" style="background:${col}"></span><b>${f.fuel[0].toUpperCase() + f.fuel.slice(1)}</b>
+        <span class="muted small">${above ? `<b style="color:var(--bad)">${fmt(diff)}% above</b>` : `<b style="color:var(--good)">${fmt(diff)}% below</b>`} the typical similar home · ${f.percentile}th percentile of ${fmt(f.n_peers)} peers</span></div>
+      <div class="fuel-bar" title="Your home: ${kwh(f.actual_kwh)}"><span class="muted">You</span><div class="track"><span style="width:${f.actual_kwh / max * 100}%;background:${col}"></span></div><b class="num">${kwh(f.actual_kwh)}</b></div>
+      <div class="fuel-bar" title="Typical similar home: ${kwh(f.peer_median_kwh)}"><span class="muted">Typical</span><div class="track"><span style="width:${f.peer_median_kwh / max * 100}%;background:var(--line-2)"></span></div><b class="num muted">${kwh(f.peer_median_kwh)}</b></div>
+    </div>`;
+  }).join("") + `<div class="cmp-legend"><span><i style="background:var(--elec)"></i>Your home</span><span><i style="background:var(--line-2)"></i>Typical similar home (DESNZ NEED median)</span></div>`;
+}
+function distChart(bandDist, hiBand) {
+  const bands = ["Very poor", "Poor", "Moderate", "Good", "Highly efficient"];
+  const counts = bands.map((b) => bandDist[b] || 0);
+  const max = Math.max(...counts, 1);
+  const W = 360, H = 118, bw = W / bands.length;
+  return `<svg viewBox="0 0 ${W} ${H + 30}" class="cmp-svg" role="img" aria-label="Score distribution across scored homes, your band highlighted">
+    ${bands.map((b, i) => {
+      const h = Math.max(counts[i] / max * H, counts[i] ? 2 : 0), x = i * bw + 7, w = bw - 14, hi = b === hiBand;
+      return `<g><rect x="${x}" y="${H - h}" width="${w}" height="${h}" rx="4" fill="${hi ? "var(--accent)" : "var(--line-2)"}"><title>${b}: ${fmt(counts[i])} homes</title></rect>
+        <text x="${x + w / 2}" y="${H - h - 4}" class="cmp-cnt">${fmt(counts[i])}</text>
+        <text x="${x + w / 2}" y="${H + 14}" class="cmp-axis">${esc(b.split(" ")[0])}</text>
+        ${b.includes(" ") ? `<text x="${x + w / 2}" y="${H + 25}" class="cmp-axis">${esc(b.split(" ")[1])}</text>` : ""}</g>`;
+    }).join("")}
+  </svg>${hiBand ? `<p class="small muted" style="margin-top:2px">Your home is in the <b style="color:var(--accent)">${esc(hiBand)}</b> band.</p>` : ""}`;
+}
+function standingStrip(st, score) {
+  if (!st?.available || !st.similar) return `<p class="muted small">Not enough similar homes to rank this one.</p>`;
+  const sim = st.similar, sc = score?.score ?? (score?.score_range ? (score.score_range[0] + score.score_range[1]) / 2 : null);
+  const pos = Math.max(2, Math.min(98, sc ?? 0)), med = Math.max(2, Math.min(98, sim.median_score));
+  return `<div class="pct-track"><div class="pct-rail"></div>
+    <div class="pct-tick" style="left:${med}%" data-label="typical ${fmt(sim.median_score)}"></div>
+    <div class="pct-mark" style="left:${pos}%" data-label="you ${score?.score ?? "range"}"></div></div>
+    <p class="small">This home scores higher than <b>${fmt(sim.percentile)}%</b> of ${fmt(sim.homes)} ${esc(sim.definition)} homes. The typical similar home scores <b>${fmt(sim.median_score)}</b>${st.all ? `; the portfolio median is <b>${fmt(st.all.median_score)}</b>` : ""}.</p>`;
+}
+function comparisonSection(f, st, pf) {
+  const dist = pf?.band_distribution?.all || {};
+  return `<div class="section">
+    <div class="section-eyebrow">How your home compares</div>
+    <div class="cmp-grid">
+      <div class="card"><h3>Standing among similar homes</h3>
+        <div class="card-sub">${st?.similar ? esc(st.similar.definition) : "similar homes"} · ranked by the same engine</div>
+        ${standingStrip(st, f.score)}</div>
+      <div class="card"><h3>Where you sit in the portfolio</h3>
+        <div class="card-sub">Score distribution across all scored homes.</div>
+        ${distChart(dist, f.score?.band)}</div>
+      <div class="card" style="grid-column:1/-1"><h3>Energy use vs the typical similar home</h3>
+        <div class="card-sub">Real peer medians from DESNZ NEED <span class="tag real">real data</span> — ${esc(f.peer?.peer_group || "")}. Guidance, not judgement.</div>
+        ${peerCompare(f.peer?.fuels)}</div>
+    </div></div>`;
+}
+
 // ──────────────────────────────────────────────────────────── PAGES
 function pageHead(title, sub) { return `<div class="page-head"><h1>${esc(title)}</h1>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`; }
 
 // ── Home overview ──────────────────────────────────────────
 async function pageOverview() {
   const { facts: f } = await loadFacts(S.pid);
+  const [st, pf] = await Promise.all([
+    api(`/api/properties/${encodeURIComponent(S.pid)}/standing`).catch(() => null),
+    getPortfolio().catch(() => null),
+  ]);
   const sum = f.property_summary, sc = f.score, pkg = f.package, nba = f.next_best_action, val = f.value;
   const purchased = (f.baseline?.electricity?.annual_kwh || 0) + (f.baseline?.gas?.annual_kwh || 0);
   const issues = (sc.issues || []).slice(0, 3);
@@ -318,6 +383,8 @@ async function pageOverview() {
       </div>
     </div>
   </div>
+
+  ${comparisonSection(f, st, pf)}
 
   <div class="section">
     <div class="section-eyebrow">04 · Explore your options</div>
@@ -705,18 +772,29 @@ async function pageLender() {
   const p = await api("/api/portfolio");
   const k = p.kpis;
   const val = k.value || {};
-  return `${pageHead("Lender workspace — portfolio", `${fmt(p.n_homes)} homes · ${esc(p.data_label)}. The same engine and contracts as the homeowner view.`)}
+  const dist = p.band_distribution.all || {};
+  const classified = ["Very poor", "Poor", "Moderate", "Good", "Highly efficient"].reduce((a, b) => a + (dist[b] || 0), 0);
+  const undetermined = dist.Undetermined || 0;
+  const def = (t) => `class="k kpi-def" title="${esc(t)}"`;
+  return `${pageHead("Lender workspace — portfolio", `${fmt(p.n_homes)} homes · ${esc(p.data_label)}. The same engine and contracts as the homeowner view. Hover any metric for its exact definition.`)}
   <div class="kpi-row">
-    <div class="card"><div class="stat"><span class="k">Average score</span><span class="v">${fmt(k.avg_score?.value, 1)}</span><span class="foot">${fmt(k.avg_score?.n)} homes</span></div></div>
-    <div class="card"><div class="stat"><span class="k">Poor / very poor</span><span class="v">${pct(k.poor_pct?.value)}</span><span class="foot">${fmt(k.poor_pct?.count)} homes</span></div></div>
-    <div class="card"><div class="stat"><span class="k">Opportunity</span><span class="v sm">${fmt(k.opportunity?.gwh, 1)} GWh</span><span class="foot">${fmt(k.opportunity?.tco2e)} t CO₂e/yr</span></div></div>
-    <div class="card"><div class="stat"><span class="k">Typical uplift</span><span class="v sm">${val.median_uplift_pct && val.median_uplift_pct[0] != null ? pctRange(val.median_uplift_pct[0], val.median_uplift_pct[1]) : "—"}</span><span class="foot">${val.band_improves != null ? fmt(val.band_improves) + " homes improve band" : "indicative"}</span></div></div>
+    <div class="card"><div class="stat"><span ${def(`Mean of the point Green Home Score. Denominator: the ${fmt(k.avg_score?.n)} homes that have a point score; ${fmt(k.avg_score?.excluded)} homes with only a score range are excluded. Modelled, current state (no retrofits).`)}>Average score</span><span class="v">${fmt(k.avg_score?.value, 1)}</span><span class="foot">of ${fmt(k.avg_score?.n)} scored homes</span></div></div>
+    <div class="card"><div class="stat"><span ${def(`Share flagged poor energy efficiency (Poor/Very poor, or a partial-score home the detector still flags). Numerator ${fmt(k.poor_pct?.count)}, denominator ${fmt(k.poor_pct?.n)} homes where the flag is determinable. Modelled, current state.`)}>Poor / very poor</span><span class="v">${pct(k.poor_pct?.value)}</span><span class="foot">${fmt(k.poor_pct?.count)} of ${fmt(k.poor_pct?.n)} homes</span></div></div>
+    <div class="card"><div class="stat"><span ${def(`Total net purchased-energy saving if each home installed its recommended ${esc(OBJ_NAME[S.objective])} package. Denominator: ${fmt(k.opportunity?.n)} metered homes. Estimated (not observed); negative electricity means heat pumps add electricity while cutting gas.`)}>Opportunity</span><span class="v sm">${fmt(k.opportunity?.gwh, 1)} GWh</span><span class="foot">${fmt(k.opportunity?.tco2e)} t CO₂e/yr · ${fmt(k.opportunity?.n)} homes</span></div></div>
+    <div class="card"><div class="stat"><span ${def(`Median indicative value uplift across homes whose EPC band improves under the recommended package (${val.band_improves != null ? fmt(val.band_improves) : "—"} homes). From historical EPC-band/price relationships in the synthetic sales data — indicative, not a valuation, not causal.`)}>Typical uplift</span><span class="v sm">${val.median_uplift_pct && val.median_uplift_pct[0] != null ? pctRange(val.median_uplift_pct[0], val.median_uplift_pct[1]) : "—"}</span><span class="foot">${val.band_improves != null ? fmt(val.band_improves) + " homes improve band" : "indicative"}</span></div></div>
   </div>
 
   <div class="section"><div class="card"><h3>Score band distribution</h3>
+    <div class="card-sub">All ${fmt(p.n_homes)} homes. ${fmt(classified)} are classified into a band; ${fmt(undetermined)} are Undetermined (only a score range, no point band yet).</div>
     <table class="data"><thead><tr><th>Band</th><th class="num">Homes</th><th>Share</th></tr></thead><tbody>
-      ${["Very poor", "Poor", "Moderate", "Good", "Highly efficient", "Undetermined"].map((b) => { const n = (p.band_distribution.all || {})[b] || 0; const w = n / p.n_homes * 100; return `<tr><td><span class="band-dot" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${bandCol(b)};margin-right:8px"></span>${esc(b)}</td><td class="num">${fmt(n)}</td><td class="bar-cell"><div class="bar"><span style="width:${w}%;background:${bandCol(b)}"></span></div></td></tr>`; }).join("")}
+      ${["Very poor", "Poor", "Moderate", "Good", "Highly efficient", "Undetermined"].map((b) => { const n = dist[b] || 0; const w = n / p.n_homes * 100; return `<tr><td><span class="band-dot" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${bandCol(b)};margin-right:8px"></span>${esc(b)}</td><td class="num">${fmt(n)}</td><td class="bar-cell"><div class="bar"><span style="width:${w}%;background:${bandCol(b)}"></span></div></td></tr>`; }).join("")}
+      <tr style="font-weight:700;border-top:2px solid var(--line-2)"><td>Total</td><td class="num">${fmt(p.n_homes)}</td><td class="muted small">${fmt(classified)} classified + ${fmt(undetermined)} undetermined</td></tr>
     </tbody></table>
+    <div class="note small" style="margin-top:12px"><b>Why the counts differ by a little.</b> Three metrics use three deliberately different, documented populations:
+      the <b>average</b> is over the ${fmt(k.avg_score?.n)} homes with a point score; the <b>band distribution</b> classifies ${fmt(classified)} homes
+      (a few partial-score homes are banded because their range sits entirely in one band, yet are excluded from the average);
+      and <b>poor/very poor</b> counts ${fmt(k.poor_pct?.count)} because the efficiency detector also flags some partial-score homes that have no final band.
+      Every home is accounted for: ${fmt(classified)} classified + ${fmt(undetermined)} undetermined = ${fmt(p.n_homes)}.</div>
   </div></div>
 
   <div class="section"><div class="card"><h3>Highest improvement potential</h3><div class="card-sub">Ranked by % reduction in purchased energy from the feasible package (PS2 §3). Click a home to open it.</div>
