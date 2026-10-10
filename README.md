@@ -18,26 +18,68 @@ you can trust and explanations you can check.
 
 ![GreenIQ system at a glance](docs/assets/greeniq-system.svg)
 
-## Run it (one command, no API key)
+## Run it
 
+### 1 · Install (once)
+You need **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** (`pip install uv` works too). No Node, no API key.
 ```bash
-uv run python -m greeniq serve      # → http://127.0.0.1:8000  (dashboard + API on one port)
+git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
+cd Absolut
+git checkout beautiful        # or main (kept in sync)
+uv sync                       # creates .venv with the pinned dependencies
 ```
 
-First start analyses all 3,000 homes once and caches them in `var/` (~10 s); later starts take ~3 s.
-Other commands: `uv run python -m greeniq analyse P00007` (one home, incl. its Next Best Action) ·
-`uv run pytest` (134 tests) · `uv run python -m greeniq evaluate` · `uv run python -m greeniq eval-grounding`.
+### 2 · Start the app
+```bash
+uv run python -m greeniq serve
+```
+Open **http://127.0.0.1:8000**. The first start analyses all 3,000 homes and caches them (~20 s); later starts take ~3 s.
+Explanations come from the built-in template narrator, so everything works with no AI and no key.
 
-> **Status (2026-10-10):** engine, ML, evaluation, Next Best Action, API, the full dashboard and the
-> Decision Lab are **built and tested** (134 passing). Grounded AI (**P5**) is **in progress** —
-> the grounding gate, the gated explain pipeline, the what-if assistant and the groundedness eval
-> are done; the remaining P5 steps (and the one known gap) are listed below and in detail in
-> [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md). **Read that journal first to continue the build.**
->
-> **Data:** the running app uses a documented **synthetic** world (simulated homes, meters and
-> sales with hidden truth the engines never see; [`data/DATA_CARD.md`](data/DATA_CARD.md)).
-> [`dataset.md`](dataset.md) records the DESNZ NEED anonymised sample (Open Government Licence v3.0)
-> as the real-data reference.
+### 3 · What to click (a 3-minute tour)
+1. **Dashboard**: portfolio KPIs, score bands, the triage queue (each home's Next Best Action).
+2. **Properties** → open a home (e.g. `P00007`):
+   - **Score breakdown**: 7 fixed-weight parts with points earned and lost.
+   - **Homes like yours** (`real data` badge): this home vs real DESNZ NEED homes of the same type, size and age.
+   - **Next Best Action** with three reasons; **recommendations** with per-fuel kWh, costs and real-evidence lines.
+   - **Ask a what-if**: e.g. "What if I only add a heat pump?" The engine reruns, and electricity goes **up** while gas goes down.
+   - **The grounding gate at work**: click *Show it*. An honest explanation passes; an invented number, a flipped
+     direction and a value promise are blocked.
+3. **Decision Lab**: named plans (lowest cost / greenest / best value / my budget), cost-vs-carbon frontier,
+   dependency graph, energy Sankey, interaction heatmap, sensitivity.
+4. **Analytics** and **Evidence**: model results vs baselines, data sources, receipts.
+   Toggle **Evidence mode** (sidebar) to see where every sentence and number comes from.
+
+### 4 · Optional: a free local AI narrator (no API key, no cost)
+Any OpenAI-compatible local server works. Example with **llama.cpp** (~45 MB) and **Qwen2.5-1.5B** (~1.1 GB):
+```bash
+# download llama-server (Linux CPU build): https://github.com/ggml-org/llama.cpp/releases (llama-bXXXX-bin-ubuntu-x64.tar.gz)
+# download the model: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF (qwen2.5-1.5b-instruct-q4_k_m.gguf)
+./llama-server -m qwen2.5-1.5b-instruct-q4_k_m.gguf --port 8081 --alias qwen2.5-1.5b-instruct
+# in another terminal:
+GREENIQ_LLM_PROVIDER=openai_compatible GREENIQ_LLM_BASE_URL=http://127.0.0.1:8081/v1 \
+  GREENIQ_LLM_MODEL=qwen2.5-1.5b-instruct uv run python -m greeniq serve
+```
+Other options: **Ollama** (`ollama pull qwen2.5:7b`, then `GREENIQ_LLM_PROVIDER=ollama`); a **free hosted tier**
+(Groq, Gemini, OpenRouter) via `GREENIQ_LLM_BASE_URL` + `GREENIQ_LLM_API_KEY` + `GREENIQ_LLM_MODEL`; or **Claude**
+(`uv sync --extra llm`, set `ANTHROPIC_API_KEY`). Whatever the model writes passes the grounding gate first, or the
+template is shown instead. `GREENIQ_LLM=off` forces the template.
+
+### 5 · Reproduce the evidence
+```bash
+uv run pytest                                   # all tests
+uv run python -m greeniq analyse P00007         # one home in the terminal
+uv run python -m greeniq real-evidence          # real NEED data → reports/REAL_DATA.md (~20 s)
+uv run python -m greeniq evaluate               # held-out test split → reports/EVALUATION.md
+uv run python -m greeniq eval-grounding         # grounding gate → reports/GROUNDING.md (add --llm 20 with a model)
+uv run python -m greeniq edge-sweep             # every PS2 scenario over 3,000 homes → reports/EDGE_CASES.md (~90 s)
+uv run python -m greeniq generate && uv run python -m greeniq train   # rebuild the synthetic data and models from scratch
+```
+> On a machine with ROS installed, prefix commands with `env -u PYTHONPATH` (ROS pytest plugins leak in).
+
+**Data:** the app's detailed homes are **synthetic** (documented simulator, [`data/DATA_CARD.md`](data/DATA_CARD.md)).
+Real data, **DESNZ NEED (50,000 real homes, OGL v3.0)**, drives the real-home benchmarks, the real retrofit
+evidence and the real-data model evaluation ([`reports/REAL_DATA.md`](reports/REAL_DATA.md)). Real figures carry a `real data` badge.
 
 ---
 
