@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .context import load_context
 from .data import DATA_DIR, ROOT, load_dataset
-from .engines.ranking import portfolio_row, rank_poor_homes
+from .engines.ranking import RANKING_VERSION, TIERS, portfolio_row, priority_tier, rank_poor_homes
 from .facts import ComputedFacts, Scenario
 from .pipeline import analyse_home
 
@@ -56,6 +56,7 @@ class GreenIQService:
         model_card = ROOT / "models" / "model_card.json"
         self.engine_key = hashlib.sha256(json.dumps(
             {"v": sample.versions, "providers": sample.providers_used, "cal": self.ctx.calibration,
+             "rows": RANKING_VERSION,
              "models": _fingerprint([model_card]),
              "data": _fingerprint(sorted((DATA_DIR / "raw").glob("*.csv")))}, sort_keys=True).encode()).hexdigest()[:16]
         self.versions = sample.versions
@@ -105,6 +106,7 @@ class GreenIQService:
             f = analyse_home(self.ds.property(pid), self.ctx)
             row = {**portfolio_row(f), **nba_row(f), "age_band": f.property_summary["age_band"],
                    "score_basis": f.score.status, "has_epc": f.sap.basis == "observed"}
+            row["tier"] = priority_tier(row)
             rows.append(row)
         with self._lock, self._db:
             self._db.execute("DELETE FROM portfolio WHERE engine_key != ?", (self.engine_key,))
@@ -117,8 +119,15 @@ class GreenIQService:
 
     def search(self, q: str | None = None, band: str | None = None, region: str | None = None,
                property_type: str | None = None, disposition: str | None = None, poor_only: bool = False,
-               sort: str = "property_id", limit: int = 50, offset: int = 0) -> dict:
+               sort: str = "property_id", limit: int = 50, offset: int = 0, ids: str | None = None,
+               group_by: str | None = None, group: str | None = None, tier: str | None = None) -> dict:
         rows = self._rows
+        if ids:
+            want = [i.strip().upper() for i in ids.split(",") if i.strip()]
+            by = {r["property_id"]: r for r in rows}
+            rows = [by[i] for i in want if i in by]
+        if group_by in GROUP_KEYS and group is not None:
+            rows = [r for r in rows if _group_value(r, group_by) == group]
         if q:
             ql = q.lower()
             rows = [r for r in rows if ql in r["property_id"].lower() or ql in (r.get("customer_id") or "").lower()
@@ -133,11 +142,51 @@ class GreenIQService:
             rows = [r for r in rows if r["nba_disposition"] == disposition]
         if poor_only:
             rows = [r for r in rows if r["is_poor"]]
-        if sort == "potential":
+        if tier:
+            rows = [r for r in rows if r.get("tier") == tier]
+        if sort == "priority":
+            order = {t: i for i, t in enumerate(TIERS)}
+            rows = sorted(rows, key=lambda r: (order.get(r.get("tier"), 9), r["potential_pct"] is None,
+                                               -(r["potential_pct"] or 0), r["property_id"]))
+        elif sort == "potential":
             rows = sorted(rows, key=lambda r: (r["potential_pct"] is None, -(r["potential_pct"] or 0), r["property_id"]))
         elif sort == "score":
             rows = sorted(rows, key=lambda r: (r["score"] is None, r["score"] or 0, r["property_id"]))
+        elif sort == "carbon":
+            rows = sorted(rows, key=lambda r: (r["carbon_saving_kg"] is None, -(r["carbon_saving_kg"] or 0), r["property_id"]))
+        elif sort == "value":
+            rows = sorted(rows, key=lambda r: (r["value_uplift_pct_high"] is None, -(r["value_uplift_pct_high"] or 0),
+                                               r["property_id"]))
         return {"total": len(rows), "offset": offset, "limit": limit, "items": rows[offset:offset + limit]}
+
+    def standing(self, property_id: str) -> dict:
+        """Where this home's score sits among homes scored by the SAME engine version in this portfolio
+        (mid-rank percentile: share scoring lower + half of ties). Relative rank, not a probability."""
+        me = next((r for r in self._rows if r["property_id"] == property_id), None)
+        if me is None:
+            raise UnknownProperty(property_id)
+        if me["score"] is None:
+            return {"available": False, "reason": "This home's score is a range (an input is missing), so it is not ranked."}
+
+        def pct(pool):
+            xs = [r["score"] for r in pool if r["score"] is not None]
+            lower = sum(1 for x in xs if x < me["score"])
+            ties = sum(1 for x in xs if x == me["score"])
+            return {"percentile": round(100 * (lower + 0.5 * ties) / len(xs), 0), "homes": len(xs),
+                    "median_score": statistics.median(xs)}
+        same = [r for r in self._rows if r["property_type"] == me["property_type"] and r["age_band"] == me["age_band"]]
+        out = {"available": True, "score": me["score"], "all": pct(self._rows),
+               "similar": {**pct(same), "definition": f"{me['property_type'].replace('_', ' ')} homes, {me['age_band'].replace('_', ' ')}"},
+               "population": "homes in this (simulated) portfolio, scored with the same engine version",
+               "method": "mid-rank percentile: % scoring lower + half of equal scores"}
+        if out["similar"]["homes"] < 30:
+            out["similar"] = {"available": False, "reason": f"only {out['similar']['homes']} similar homes; too few to rank"}
+        return out
+
+    def groups(self, by: str) -> dict:
+        if by not in GROUP_KEYS:
+            raise ValueError(f"group by one of: {', '.join(GROUP_KEYS)}")
+        return group_summary(self._rows, by)
 
     def portfolio(self) -> dict:
         rows = self._rows
@@ -179,6 +228,13 @@ class GreenIQService:
                             "negative electricity means heat pumps add electricity while cutting gas"},
                 "poor_pct": {"value": round(100 * sum(1 for r in poor_known if r["is_poor"]) / len(poor_known), 1),
                              "count": sum(1 for r in poor_known if r["is_poor"]), "n": len(poor_known)},
+                "value": {
+                    "homes": sum(1 for r in rows if r["value_uplift_pct_high"] is not None),
+                    "band_improves": sum(1 for r in rows if (r["value_uplift_pct_high"] or 0) > 0),
+                    "median_uplift_pct": [_median([r["value_uplift_pct_low"] for r in rows if r["value_uplift_pct_high"]]),
+                                          _median([r["value_uplift_pct_high"] for r in rows if r["value_uplift_pct_high"]])],
+                    "note": "indicative range from historical EPC-band price relationships in the (synthetic) sales data; "
+                            "not a valuation and not causal; median over homes whose EPC band improves"},
                 "coverage": {"metered_pct": round(100 * sum(r["baseline_basis"] == "metered" for r in rows) / len(rows), 1),
                              "epc_pct": round(100 * sum(bool(r.get("has_epc")) for r in rows) / len(rows), 1),
                              "complete_score_pct": round(100 * sum(r["score_basis"] == "complete" for r in rows) / len(rows), 1)},
@@ -188,6 +244,9 @@ class GreenIQService:
                                   "age_band": dist("age_band")},
             "opportunity_by_region": [{"region": k, "tco2e": round(v / 1000, 0), "share_pct": round(100 * v / total_c, 1)}
                                       for k, v in sorted(carbon_by_region.items(), key=lambda x: -x[1])],
+            "group_keys": GROUP_KEYS,
+            "tiers": [{"key": k, "label": lab, "meaning": m, "homes": sum(1 for r in rows if r.get("tier") == k)}
+                      for k, (lab, m) in TIERS.items()],
             "triage": {d: sum(1 for r in rows if r["nba_disposition"] == d)
                        for d in ("recommend", "refer_for_survey", "no_action")},
             "next_actions": [{"disposition": d, "label": lab, "count": c} for (d, lab), c in nba_counts.most_common(10)],
@@ -197,6 +256,55 @@ class GreenIQService:
             "versions": self.versions,
             "providers": self.providers,
         }
+
+
+GROUP_KEYS = {"region": "Region", "property_type": "Property type", "age_band": "Age", "heating_system": "Heating",
+              "epc_band": "EPC band", "band": "Score band", "baseline_basis": "Energy data"}
+
+
+def _group_value(r: dict, key: str) -> str:
+    v = r.get(key)
+    return "Not certain" if key == "band" and v is None else (v or "unknown")
+
+
+def _median(xs: list[float]) -> float | None:
+    return round(statistics.median(xs), 1) if xs else None
+
+
+def group_summary(rows: list[dict], key: str) -> dict:
+    """Every PS2 output per group (region, type, age, heating, EPC band, score band, data quality).
+    Pure aggregation of each home's computed facts; nothing is re-estimated."""
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        groups[_group_value(r, key)].append(r)
+    out = []
+    for g, rs in groups.items():
+        scored = [r["score"] for r in rs if r["score"] is not None]
+        known = [r for r in rs if r["is_poor"] is not None]
+        av = [r for r in rs if r["potential_status"] == "available"]
+        val = [r for r in rs if r["value_uplift_pct_high"] is not None]
+        out.append({
+            "group": g, "homes": len(rs),
+            "avg_score": round(statistics.mean(scored), 1) if scored else None,
+            "avg_score_after": round(statistics.mean(r["score_after"] for r in rs if r["score_after"] is not None), 1)
+            if any(r["score_after"] is not None for r in rs) else None,
+            "poor_pct": round(100 * sum(r["is_poor"] for r in known) / len(known), 1) if known else None,
+            "poor_homes": sum(1 for r in known if r["is_poor"]),
+            "median_potential_pct": _median([r["potential_pct"] for r in av]),
+            "electricity_saving_mwh": round(sum(r["electricity_saving_kwh"] or 0 for r in av) / 1000, 1),
+            "gas_saving_mwh": round(sum(r["gas_saving_kwh"] or 0 for r in av) / 1000, 1),
+            "carbon_saving_t": round(sum(r["carbon_saving_kg"] or 0 for r in av) / 1000, 1),
+            "carbon_saving_t_per_home": round(sum(r["carbon_saving_kg"] or 0 for r in av) / 1000 / len(av), 2) if av else None,
+            "median_uplift_pct": [_median([r["value_uplift_pct_low"] for r in val]),
+                                  _median([r["value_uplift_pct_high"] for r in val])] if val else None,
+            "homes_with_savings": len(av), "homes_with_value": len(val),
+            "metered_pct": round(100 * sum(r["baseline_basis"] == "metered" for r in rs) / len(rs), 0),
+        })
+    order = {"band": BANDS + ["Not certain"], "epc_band": list("ABCDEFG")}.get(key)
+    out.sort(key=lambda x: (order.index(x["group"]) if order and x["group"] in order else 99, x["group"]))
+    return {"by": key, "label": GROUP_KEYS[key], "groups": out,
+            "note": "Savings, carbon and potential sum or take medians over homes whose improvement potential is available; "
+                    "value over homes with a value estimate. All per-home figures are engine estimates."}
 
 
 def dist_all(rows: list[dict]) -> dict:

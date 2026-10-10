@@ -174,7 +174,7 @@ def _component(key: str, sub: float | None, basis: Basis, display: str, explanat
         inputs=inputs,
         method=f"{M.LABELS[key]} mapping (see docs/SCORING_METHOD.md)",
         method_version=M.MAPPING_VERSION,
-        sources=["Lloyds PS2 §03 (weights)", "docs/SCORING_METHOD.md"],
+        sources=["Lloyds PS2 §2 (fixed weights)", "docs/SCORING_METHOD.md"],
         notes=[f"basis: {basis}"],
     )
     return ComponentScore(
@@ -260,7 +260,8 @@ def _insulation(inp: dict[str, Resolved]) -> ComponentScore:
     s = sum(w * v for _, w, v in parts) / total_w
     display = "; ".join(text)
     expl = ("Weighted average of " + ", ".join(f"{n} {v:.0f}/100" for n, _, v in parts) +
-            " (element weights walls 45%, loft 35%, floor 20%, renormalised over elements that apply).")
+            " (element weights " + ", ".join(f"{n} {M.INSULATION_ELEMENT_WEIGHTS[n]:.0%}" for n in M.INSULATION_ELEMENT_WEIGHTS)
+            + ", renormalised over elements that apply).")
     inputs = {n: round(v, 1) for n, _, v in parts}
     return _component("insulation", s, _worst_basis(*used), display, expl, inputs)
 
@@ -345,7 +346,7 @@ def compute_score(inp: dict[str, Resolved]) -> ScoreResult:
         Issue(component=c.key, label=c.label, sub_score=c.sub_score, points_available=c.points_available,
               text=f"{c.label}: {c.input_display} ({c.sub_score:.0f}/100, {c.points_available:.1f} points available)",
               improved_by=c.improved_by)
-        for c in sorted((c for c in comps if c.sub_score is not None and c.sub_score < 60),
+        for c in sorted((c for c in comps if c.sub_score is not None and c.sub_score < M.ISSUE_SUBSCORE_THRESHOLD),
                         key=lambda c: -c.points_available)
     ]
 
@@ -356,7 +357,7 @@ def compute_score(inp: dict[str, Resolved]) -> ScoreResult:
         inputs={c.key: c.sub_score for c in comps},
         method=SCORE_METHOD,
         method_version=M.MAPPING_VERSION,
-        sources=["Lloyds PS2 §03 Green Home Score"],
+        sources=["Lloyds PS2 §2 Green Home Score"],
         notes=([f"missing components: {', '.join(missing)}"] if missing else [])
         + ([f"assumed/estimated components: {', '.join(estimated)}"] if estimated else []),
     )

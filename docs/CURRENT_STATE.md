@@ -373,3 +373,46 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 - **Not done / optional next**: run the live Claude narrator once a key is available
   (`uv sync --extra llm`, set `ANTHROPIC_API_KEY`, `python -m greeniq eval-grounding --llm 20`); real NEED data
   as the backbone (see the review notes); persistent customer memory beyond per-request constraints.
+
+### 2026-10-11 · PS2 audit, real-data correction, decision dashboard (uncommitted at time of writing)
+
+**Audit (docs/IMPLEMENTATION_AUDIT.md).** Traceability matrix §1–§13 with file/test evidence; gaps ranked.
+
+**Engine fixes.** Insulation explanation stated wrong weights (now read from config) · PS2 section references
+corrected · issue threshold moved to config · estimated-baseline homes now ranked, labelled `estimated` (PS2 §3
+only allows "unavailable" for zero/missing baselines) · solar on listed buildings / top-floor flats → "check first",
+unknown flat position → "check first" · catalogue v1.1 with applicability conditions and the brief's illustrative
+impacts · 13 judgement calls moved to `config/assumptions.json` · real-home calibration from DESNZ NEED (loft 1.42,
+cavity 0.50, solar 0.38; median ÷ median — a median-vs-mean bug understated loft savings) · NBA alternatives now
+say why they lost ("67 vs 106 kg CO₂e/yr per £1k").
+
+**Evaluation.** `reports/EVALUATION.md` leads with validation-set metrics vs simple baselines (PS2 §13G);
+`reports/RETROFIT_IMPACTS.md` compares engine impacts with the brief's illustrative table and real homes;
+grounding eval takes `--split validation|test` and writes `GROUNDING_VALIDATION.md` separately.
+
+**API.** `/api/properties/{id}/explain?scope=home|package` (AI explanation, gated, cached per facts/provider) ·
+`/standing` (mid-rank percentile within the portfolio, same engine version) · `/api/portfolio/groups?by=…` ·
+`/api/properties?ids=…&tier=…&sort=priority` · priority tiers (Act now / Check first / Worth doing / No action)
+derived only from engine outputs · `/api/evidence` carries formulas, assumptions, calibration and real-data summary.
+
+**Dashboard.** One home = case file: identity + data-quality chips → decision strip (score, priority, next best
+action, before-you-act flags) → whole-plan outcome → tabs *Green Home Score · Improvements · Energy & carbon ·
+Property value · What if…* with an AI card ("Written by Claude/Ollama/local model · ✓ checked" or template) and an
+evidence pane. Many homes = *Overview · Priority list (quick view, tick to compare) · Compare (groups + selected)*.
+Removed: dependency graph, interaction heatmap, sensitivity view, energy Sankey. Directions in words, not arrows.
+Desktop only (phone layout out of scope by decision).
+
+**Decisions taken (from the audit's D1–D8, recommendation applied; reversible):** D2 the mechanism PDF overclaims
+EPC/Land Registry/London Smart Meter/weather API — not used; documented here and in DATA_CARD · D3 keep DESNZ 2025
+factors (electricity value derived; disclosed) · D4 value uplift learned from simulated sales with planted premiums —
+disclosed in the UI and docs · D5 loft realisation 1.42 accepted with disclosure · D6 heat pump physics kept
+(55.7% vs brief's illustrative 15–25%, explained in RETROFIT_IMPACTS.md) · D7 NBA = blockers → prerequisites →
+documented objective × suitability, with comparative reasons · D8 grounding tuned on validation; test reported once.
+**D1 (commit/push) not taken: awaiting approval.**
+
+**Verified.** `uv run pytest` → 204 passed. Browser at 1440 px: start page, home (all five tabs), AI card with the
+local Qwen model (LLM mode, gate passed), many-homes overview, priority list + quick view, compare. Claude path:
+provider selected, request sent, 401 with an invalid key → template fallback (no live Claude call possible here).
+
+**Next.** Live Claude check with the demo key · AI targets (see GROUNDING_VALIDATION.md) · regenerate EDGE_CASES.md ·
+commit after approval.

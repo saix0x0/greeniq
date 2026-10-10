@@ -77,3 +77,76 @@ def test_uniform_errors(client):
 def test_objective_changes_the_selection_basis(client):
     n = client.get("/api/properties/P00007/next-best-action?objective=carbon").json()
     assert n["objective"] == "carbon" and n["benefit_unit"] == "kg CO2e/yr"
+
+
+def test_group_summaries_cover_every_ps2_output_and_add_up(client):
+    rows = client.get("/api/properties?limit=500").json()["total"]
+    for by in ("region", "property_type", "age_band", "heating_system", "epc_band", "band", "baseline_basis"):
+        g = client.get(f"/api/portfolio/groups?by={by}").json()
+        assert sum(x["homes"] for x in g["groups"]) == rows
+        x = g["groups"][0]
+        for k in ("avg_score", "poor_pct", "median_potential_pct", "electricity_saving_mwh", "gas_saving_mwh",
+                  "carbon_saving_t", "median_uplift_pct"):
+            assert k in x
+    assert client.get("/api/portfolio/groups?by=nonsense").status_code == 422
+
+
+def test_compare_by_ids_keeps_the_requested_order(client):
+    r = client.get("/api/properties?ids=P00007,P00004,P99999").json()
+    assert [x["property_id"] for x in r["items"]] == ["P00007", "P00004"]
+    assert {"issues", "value_uplift_pct_low", "heating_system"} <= set(r["items"][0])
+
+
+def test_evidence_exposes_formulas_assumptions_and_validation(client):
+    e = client.get("/api/evidence").json()
+    assert abs(sum(e["score"]["weights"].values()) - 1) < 1e-12
+    assert all("value" in a and "source" in a for a in e["assumptions"]["items"].values())
+    assert e["calibration"]["sources"]["cavity_wall_insulation"].startswith("real UK homes")
+    assert e["metrics"] is None or "validation" in e["metrics"]
+
+
+def test_explain_endpoint_is_gated_and_works_with_ai_off(client):
+    for scope in ("home", "package"):
+        r = client.get(f"/api/properties/P00007/explain?scope={scope}").json()
+        ex = r["explanation"]
+        assert ex["gate"]["passed"] and ex["mode"] == "template"  # tests run with GREENIQ_LLM=off
+        assert r["provider"]["name"] == "off"
+    assert client.get("/api/properties/P00007/explain?scope=bogus").status_code == 422
+
+
+def test_explain_endpoint_uses_the_model_when_one_is_configured(client, monkeypatch):
+    from greeniq.trust import llm
+    monkeypatch.setattr(llm, "provider", lambda: ("ollama", "fake-model behind the grounding gate"))
+    monkeypatch.setattr(llm, "generate", lambda f, scope, st=None: ("Most of the gain comes from keeping heat in.", "fake-model"))
+    monkeypatch.setattr("greeniq.api.llm_provider", llm.provider)
+    r = client.get("/api/properties/P00004/explain?scope=home").json()
+    assert r["explanation"]["mode"] == "llm" and r["explanation"]["gate"]["passed"]
+    assert r["explanation"]["sentences"][0]["text"].startswith("Most of the gain")
+
+
+def test_priority_tiers_follow_the_documented_rule(client):
+    p = client.get("/api/portfolio").json()
+    assert sum(t["homes"] for t in p["tiers"]) == p["n_homes"]
+    for tier in ("act_now", "check_first", "worth_doing", "no_action"):
+        for x in client.get(f"/api/properties?tier={tier}&limit=50").json()["items"]:
+            assert x["tier"] == tier
+            if tier == "act_now":
+                assert x["is_poor"] and x["nba_disposition"] == "recommend"
+            if tier == "check_first":
+                assert x["nba_disposition"] == "refer_for_survey"
+    items = client.get("/api/properties?sort=priority&limit=500").json()["items"]
+    order = ["act_now", "check_first", "worth_doing", "no_action"]
+    assert [order.index(x["tier"]) for x in items] == sorted(order.index(x["tier"]) for x in items)
+
+
+def test_standing_is_a_mid_rank_percentile(client):
+    s = client.get("/api/properties/P00007/standing").json()
+    assert s["available"] and 0 <= s["all"]["percentile"] <= 100 and s["all"]["homes"] > 1000
+    rng = client.get("/api/properties/P00004/standing").json()
+    assert rng["available"] is False  # a score range is never ranked
+
+
+def test_alternatives_say_why_they_lost(client):
+    nba = client.get("/api/properties/P00007").json()["facts"]["next_best_action"]
+    ranked = [a for a in nba["alternatives"] if a["benefit"] is not None]
+    assert ranked and all(" vs " in a["why_not_first"] for a in ranked)

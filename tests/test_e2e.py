@@ -52,7 +52,8 @@ def test_full_journey_is_consistent_and_grounded(client, case):
 
     if case == "missing_meters":
         assert f["baseline_basis"] == "estimated"
-        assert f["package"] is None or f["package"]["improvement_potential"]["status"] == "unavailable"
+        ip = f["package"] and f["package"]["improvement_potential"]
+        assert not ip or (ip["status"] == "available" and ip["basis"] == "estimated")  # PS2 §3: estimated, labelled
     if case == "zero_use":
         assert f["intensity_kwh_m2"]["value"] is None
         assert f["package"] is None or f["package"]["improvement_potential"]["pct"] is None

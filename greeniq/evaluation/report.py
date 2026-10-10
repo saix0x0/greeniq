@@ -17,6 +17,53 @@ def _cmp(a, b, lower_better=True) -> str:
     return "**better**" if better else "not better"
 
 
+def _validation_section(v: dict, w) -> None:
+    """PS2 §11 / §13G: the metrics and simple-baseline comparisons on the validation set."""
+    w("## Validation set: metrics and simple baselines (PS2 §11, §13G)")
+    w("")
+    w("All tuning happened against this split (customer-grouped, no home or customer shared with train or test). "
+      "Each GreenIQ method is set against a simple baseline.")
+    w("")
+    w("| Output | Metric | GreenIQ | Simple baseline | Result |")
+    w("|---|---|---|---|---|")
+    for fuel, r in v["energy"].items():
+        t = r["validation"]
+        w(f"| Baseline {fuel} (when meters are insufficient) | MAE kWh | {_f(t['gbm']['mae'])} | "
+          f"{_f(t['peer_median']['mae'])} (peer median × area) | {_cmp(t['gbm']['mae'], t['peer_median']['mae'])} |")
+    s = v["savings"]["methods"]
+    for fuel in ("electricity", "gas"):
+        w(f"| Retrofit saving, {fuel} ({v['savings']['cases']} observed retrofits) | MAE kWh | {_f(s['cal'][fuel]['mae'])} | "
+          f"{_f(s['naive'][fuel]['mae'])} (flat % rule of thumb) | {_cmp(s['cal'][fuel]['mae'], s['naive'][fuel]['mae'])} |")
+    if "hp_electricity_sign_correct" in s["cal"]:
+        w(f"| Heat pump: electricity direction | % correct | {_f(100 * s['cal']['hp_electricity_sign_correct'], 0, True)} | "
+          f"{_f(100 * s['naive']['hp_electricity_sign_correct'], 0, True)} | "
+          f"{_cmp(s['cal']['hp_electricity_sign_correct'], s['naive']['hp_electricity_sign_correct'], False)} |")
+    rk = v["ranking"]["methods"]
+    g = rk["greeniq_improvement_potential"]
+    for name in ("baseline_total_kwh (big-house trap)", "baseline_worst_epc_first"):
+        b = rk[name]
+        w(f"| Ranking poor homes ({v['ranking']['poor_homes_ranked']}) | Spearman vs true potential | "
+          f"{_f(g['spearman_vs_true_potential'], 3)} | {_f(b['spearman_vs_true_potential'], 3)} ({name}) | "
+          f"{_cmp(g['spearman_vs_true_potential'], b['spearman_vs_true_potential'], False)} |")
+    r = v["rating"]
+    w(f"| Energy rating when no EPC ({r['homes']} homes) | MAE SAP points | {_f(r['rating_model']['mae'], 1)} | "
+      f"{_f(r['peer_median_baseline']['mae'], 1)} (peer median) | {_cmp(r['rating_model']['mae'], r['peer_median_baseline']['mae'])} |")
+    cv = v["value_cv"]
+    w(f"| Current value (grouped 5-fold CV, train+validation) | median APE | {_f(cv[v['value_chosen']]['median_ape_pct'], 1, True)} "
+      f"({v['value_chosen']}) | {_f(cv['regional']['median_ape_pct'], 1, True)} (regional index) | "
+      f"{_cmp(cv[v['value_chosen']]['median_ape_pct'], cv['regional']['median_ape_pct'])} |")
+    sc, fe = v["score"], v["feasibility"]
+    w("")
+    w(f"Score: band agreement with the true inputs {_f(100 * sc['band_agreement'], 1, True)}; score ranges cover the "
+      f"truth {_f(100 * (sc['partial_range_coverage'] or 0), 0, True)} of the time. Feasibility: recall "
+      f"{_f(100 * fe['recall'], 1, True)}, unsuitable recommendations {_f(100 * fe['violation_rate'], 1, True)}. "
+      f"{_f(v['ms_per_home_with_models'], 1)} ms per home.")
+    w("")
+    w("A \"not better\" row is reported as it is; where the simple baseline wins, the product uses it or labels the "
+      "output as an estimate (see section 1).")
+    w("")
+
+
 def render(m: dict) -> str:
     L = []
     w = L.append
@@ -31,6 +78,12 @@ def render(m: dict) -> str:
     w("")
     sc = m["split_counts"]
     w(f"Splits (by customer): train {sc.get('train')} · validation {sc.get('validation')} · test {sc.get('test')} homes.")
+    w("")
+    if "validation" in m:
+        _validation_section(m["validation"], w)
+    w("## Held-out test set (scored once, after all tuning)")
+    w("")
+    w("Sections 1-7 repeat the evaluation on the untouched **test** split, in more detail.")
     w("")
 
     # 1 energy ------------------------------------------------------------------------------

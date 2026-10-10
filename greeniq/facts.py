@@ -54,7 +54,7 @@ class ImprovementPotential(BaseModel):
     e_baseline_kwh: float | None = None
     e_after_kwh: float | None = None
     reason: str | None = None
-    indicative_pct: float | None = None  # from a model-estimated baseline; labelled, never ranked
+    basis: Literal["metered", "estimated"] | None = None  # estimated = model baseline (too few meter months), labelled
     receipt: Receipt | None = None
 
 

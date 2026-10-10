@@ -111,7 +111,7 @@ def explain_package(f: ComputedFacts) -> Explanation:
     return Explanation(facts_id=f.facts_id, sentences=s)
 
 
-def explain(f: ComputedFacts, scope: str = "home", st: str | None = None) -> Explanation:
+def explain(f: ComputedFacts, scope: str = "home", st: str | None = None, use_model: bool = True) -> Explanation:
     """Language model if available → grounding gate → template fallback. Always gated.
 
     hybrid (default): the model writes the plain-English meaning with no numbers; the engine's
@@ -123,9 +123,9 @@ def explain(f: ComputedFacts, scope: str = "home", st: str | None = None) -> Exp
     st = st or style()
     template = explain_home(f) if scope == "home" else explain_package(f)
     gate_scope = "home" if scope == "home" else "package"
-    text, note = generate(f, scope, st)
+    text, note = generate(f, scope, st) if use_model else (None, "template narrator (instant); the AI explanation is requested separately")
     if text:
-        if st == "hybrid" and re.search(r"\d", text):
+        if st == "hybrid" and re.search(r"\d", re.sub(r"CO2e?|CO₂e?", "", text)):
             note = "language model output blocked: hybrid mode lets only the engine state numbers"
         else:
             shown = f"{text} {template.text}" if st == "hybrid" else text

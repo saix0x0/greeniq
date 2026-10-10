@@ -1,0 +1,61 @@
+{
+  "homes": 60,
+  "split": "validation",
+  "clean_templates": {
+    "texts": 118,
+    "blocked": 0,
+    "claims": 1242,
+    "grounded": 1242
+  },
+  "corruptions": {
+    "invented_number": {
+      "tried": 58,
+      "caught": 58
+    },
+    "flipped_direction": {
+      "tried": 58,
+      "caught": 58
+    },
+    "causal_value_claim": {
+      "tried": 58,
+      "caught": 58
+    },
+    "off_scenario_measure": {
+      "tried": 44,
+      "caught": 44
+    }
+  },
+  "llm": {
+    "run": true,
+    "homes": 30,
+    "explanations": 60,
+    "passed": 54,
+    "claims": 648,
+    "grounded": 648,
+    "unsupported": 0,
+    "status": "qwen2.5-1.5b-instruct at http://127.0.0.1:8081/v1 behind the grounding gate",
+    "failures": [],
+    "violations": {
+      "wrong_direction": 6,
+      "model_wrote_a_number": 1
+    }
+  },
+  "llm_by_style": {
+    "hybrid": {
+      "run": true,
+      "homes": 30,
+      "explanations": 60,
+      "passed": 54,
+      "claims": 648,
+      "grounded": 648,
+      "unsupported": 0,
+      "status": "qwen2.5-1.5b-instruct at http://127.0.0.1:8081/v1 behind the grounding gate",
+      "failures": [],
+      "violations": {
+        "wrong_direction": 6,
+        "model_wrote_a_number": 1
+      }
+    }
+  },
+  "seconds": 207.7
+}

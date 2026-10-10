@@ -67,9 +67,9 @@ def render(o: dict) -> str:
         chk = f"{_f(c.get('saving_pct'), 1, True)} (n={c.get('n', 0)})" if c.get("n") else "—"
         w(f"| {m.replace('_', ' ')} | {r['fuel']} | {e['n']:,} | **{_f(e['saving_pct'], 1, True)}** | "
           f"{_f(e['ci90_pct'][0], 1)}% to {_f(e['ci90_pct'][1], 1)}% | {_f(e['saving_kwh'])} | {chk} | "
-          f"{_f(r.get('engine_mean_pct'), 1, True)} | {_f(r.get('realisation_vs_engine'), 2)} |")
+          f"{_f(r.get('engine_median_pct', r.get('engine_mean_pct')), 1, True)} | {_f(r.get('realisation_vs_engine'), 2)} |")
     w("")
-    w("*Realisation* = real saving ÷ the engine's mean predicted saving for that measure across the app's homes "
+    w("*Realisation* = real median saving ÷ the engine's median predicted saving for that measure across the app's homes "
       "(engineering estimate, uncalibrated). Below 1 means real installs save less than physics predicts. This is "
       "the well-known performance gap, which can come from top-up installs, comfort take-back or installation quality.")
     w("")

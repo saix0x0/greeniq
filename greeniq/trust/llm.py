@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import httpx
 
@@ -149,9 +150,58 @@ def fact_sheet(f: ComputedFacts, scope: str) -> dict:
     return sheet
 
 
-def _messages(f: ComputedFacts, scope: str) -> str:
+def _words(s: str | None) -> str:
+    """Drop every token containing a digit (e.g. '270 mm', '£150-£350'), so a sheet can't leak figures."""
+    s = re.sub(r"[£$]?\S*\d\S*(\s+(mm|kWh|kg|t|m²|%|points?|years?|a year))?", "", s or "")
+    return re.sub(r"\s{2,}", " ", re.sub(r"\s+([.,;:)])", r"\1", s)).strip()
+
+
+def _dir(saving: float | None) -> str:
+    return "no change" if not saving else ("falls" if saving > 0 else "RISES")
+
+
+def _say(fuel: str, saving: float) -> str:
+    return f"{fuel} use stays about the same" if not saving else f"{fuel} use goes {'down' if saving > 0 else 'UP'}"
+
+
+def meaning_sheet(f: ComputedFacts, scope: str) -> dict:
+    """Hybrid style: the facts as words only — no digits anywhere — so a small model has no figure to copy.
+
+    Comparisons ("gas falls by much more than electricity rises") are decided here, in code.
+    """
+    sheet: dict = {
+        "score_band": f.score.band or "not certain (a key input is missing)",
+        "score_is": "provisional: some inputs assumed" if f.score.status != "complete" else "complete: from recorded data",
+        "biggest_weaknesses": [i.label for i in f.score.issues[:3]],
+        "energy_data": {k: b.basis for k, b in f.baseline.items()},
+        "confidence": f.confidence.level,
+    }
+    n = f.next_best_action
+    if n and scope == "home":
+        sheet["do_first"] = n.action.ref.replace("_", " ") if n.action.kind == "retrofit" and n.action.ref else _words(n.headline)
+    if f.package:
+        pk, im = f.package, f.package.impact
+        e, g = im.electricity.saving_kwh or 0, im.gas.saving_kwh or 0
+        sheet["package"] = {
+            "measures_in_order": [m.replace("_", " ") for m in pk.measures],
+            "electricity": {"change": _dir(e), "say": _say("electricity", e)}, "gas": {"change": _dir(g), "say": _say("gas", g)},
+            "overall_energy": "falls" if im.net_saving_kwh > 0 else "rises" if im.net_saving_kwh < 0 else "no change",
+            "carbon": "falls" if im.carbon.total_kg > 0 else "rises" if im.carbon.total_kg < 0 else "no change",
+            "savings_overlap": bool(pk.interaction_kwh and pk.interaction_kwh < 0),
+            "band_after": pk.band_after, "epc_band": f"{pk.epc_band_before} to {pk.epc_band_after}",
+        }
+        if e < 0 < g:
+            sheet["package"]["trade_off"] = ("electricity rises because heat comes from electricity instead of gas; "
+                                             + ("gas falls by much more" if g > 2 * -e else "gas falls by more"))
+    if f.scenario and f.scenario.rejected:
+        sheet["not_modelled"] = [r.name for r in f.scenario.rejected]
+    return sheet
+
+
+def _messages(f: ComputedFacts, scope: str, st: str = "full") -> str:
+    sheet = meaning_sheet(f, scope) if st == "hybrid" else fact_sheet(f, scope)
     return USER_TEMPLATE.format(scope="home's analysis" if scope == "home" else "retrofit package",
-                                facts_json=json.dumps(fact_sheet(f, scope), sort_keys=True))
+                                facts_json=json.dumps(sheet, sort_keys=True, ensure_ascii=False))
 
 
 def style() -> str:
@@ -220,10 +270,11 @@ def generate(f: ComputedFacts, scope: str, st: str | None = None) -> tuple[str |
     name, why = provider()
     if name == "off":
         return None, why
-    user = _messages(f, scope)
+    st = st or style()
+    user = _messages(f, scope, st)
     try:
         fn = {"anthropic": _anthropic, "ollama": _ollama, "openai_compatible": _openai_compatible}[name]
-        return fn(user, st or style())
+        return fn(user, st)
     except httpx.TimeoutException:
         return None, f"language model ({name}) timed out"
     except httpx.HTTPStatusError as e:

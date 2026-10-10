@@ -10,7 +10,7 @@ Monotonicity is guaranteed by construction and enforced by tests:
 
 from __future__ import annotations
 
-MAPPING_VERSION = "score-mappings/1.1"
+MAPPING_VERSION = "score-mappings/1.2"  # 1.2: issue threshold moved here (value unchanged)
 
 # --- PS2-fixed (not ours to change) -------------------------------------------------
 WEIGHTS: dict[str, float] = {
@@ -122,6 +122,11 @@ CONTROLS_LADDER: list[tuple[str, float]] = [
     ("smart_thermostat", 80.0),
     ("smart_zoned", 100.0),
 ]
+
+# A component is listed as a "key issue" (PS2 §3) when its sub-score is below this: under 60 the
+# element is clearly below a modern standard (e.g. loft < ~150 mm, cavity unfilled, single glazing,
+# a non-condensing boiler, no PV). Issues are ordered by points available (weight × (100 − sub-score)).
+ISSUE_SUBSCORE_THRESHOLD = 60.0
 
 # Which retrofit measures can lift each component (used to link issues to the plan).
 IMPROVED_BY: dict[str, list[str]] = {

@@ -142,8 +142,7 @@ def _option(f: ComputedFacts, base: ComputedFacts, chosen: list[str]) -> Package
         cost_mid=(pk.cost_low + pk.cost_high) / 2, electricity_saving_kwh=im.electricity.saving_kwh,
         gas_saving_kwh=im.gas.saving_kwh, net_saving_kwh=im.net_saving_kwh, carbon_kg=im.carbon.total_kg,
         score_after=pk.score_after, band_after=pk.band_after, epc_band_after=pk.epc_band_after,
-        improvement_pct=pk.improvement_potential.pct if pk.improvement_potential.status == "available"
-        else pk.improvement_potential.indicative_pct,
+        improvement_pct=pk.improvement_potential.pct,
         value_uplift_pct_range=v.uplift_pct_range if v and v.status == "available" else None, facts_id=f.facts_id)
 
 

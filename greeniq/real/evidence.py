@@ -184,9 +184,13 @@ def engine_comparison(log=print) -> dict:
             b = getattr(r.standalone, fuel).baseline_kwh
             if b and b > 0 and (fuel == "electricity" or f.baseline["gas"].basis == "metered"):
                 acc[mid[r.measure_id]].append(100 * getattr(r.standalone, fuel).saving_kwh / b)
-    out = {k: {"n_homes": len(v), "engine_mean_pct": round(float(np.mean(v)), 2) if v else None} for k, v in acc.items()}
+    # The real estimate is a MEDIAN of per-home % savings, so the engine is summarised by its median too:
+    # comparing a median with a mean biases the ratio whenever the engine's distribution is skewed (loft is).
+    out = {k: {"n_homes": len(v), "engine_mean_pct": round(float(np.mean(v)), 2) if v else None,
+               "engine_median_pct": round(float(np.median(v)), 2) if v else None} for k, v in acc.items()}
     for k, v in out.items():
-        log(f"  engine {k}: mean predicted saving {v['engine_mean_pct']}% over {v['n_homes']} app homes")
+        log(f"  engine {k}: median predicted saving {v['engine_median_pct']}% (mean {v['engine_mean_pct']}%) "
+            f"over {v['n_homes']} app homes")
     return out
 
 
@@ -204,9 +208,10 @@ def run(log=print) -> dict:
     engine = engine_comparison(log)
     for k in evidence:
         e = evidence[k].get("estimate", {})
-        p = engine[k]["engine_mean_pct"]
-        evidence[k]["engine_mean_pct"] = p
-        evidence[k]["realisation_vs_engine"] = round(e["saving_pct"] / p, 2) if e.get("n") and p else None
+        p = engine[k]["engine_median_pct"]
+        evidence[k]["engine_mean_pct"] = engine[k]["engine_mean_pct"]
+        evidence[k]["engine_median_pct"] = p
+        evidence[k]["realisation_vs_engine"] = round(e["saving_pct"] / p, 2) if e.get("n") and p else None  # median ÷ median
     from .benchmarks import build
     bench = build(d, evidence)
     log(f"R4 · benchmarks written: {sum(len(v) for v in bench['peers'].values())} peer cells, evidence for {list(bench['evidence'])}")

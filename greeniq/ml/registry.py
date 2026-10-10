@@ -92,6 +92,33 @@ def load_card(models_dir: Path = MODELS_DIR) -> dict:
     return json.loads((models_dir / "model_card.json").read_text(encoding="utf-8"))
 
 
+REAL_MEASURE = {"loft": "loft_insulation", "cavity": "cavity_wall_insulation", "solar_pv": "solar_pv"}
+
+
+def apply_real_realisation(ctx) -> None:
+    """Where real UK homes measured a measure's effect (DESNZ NEED difference-in-differences, enough homes),
+    that real-world realisation replaces the simulator-learned rate: the product must not inherit the
+    simulator's optimism. Measures without real evidence keep the simulated-history calibration."""
+    from ..config import CONFIG_DIR
+    from ..engines.catalogue import assumption
+
+    path = CONFIG_DIR / "real_benchmarks.json"
+    if not path.exists():
+        return
+    ev = json.loads(path.read_text(encoding="utf-8")).get("evidence", {})
+    used = []
+    for key, mid in REAL_MEASURE.items():
+        e = ev.get(key) or {}
+        r = e.get("realisation_vs_engine")
+        if r and e.get("n", 0) >= assumption("calibration.real_evidence_min_homes"):
+            ctx.calibration[mid] = float(r)
+            ctx.calibration_source[mid] = (f"real UK homes, DESNZ NEED (n={e['n']:,}; measured saving {e['saving_pct']}% of "
+                                           f"{e['fuel']}, 90% CI {e['ci90_pct'][0]}-{e['ci90_pct'][1]}%)")
+            used.append(mid.replace("_", " "))
+    if used:
+        ctx.calibration_name = "calibrated: real-home evidence for " + ", ".join(used) + "; simulated history for the rest"
+
+
 def attach_models(ctx, models_dir: Path = MODELS_DIR) -> None:
     """Attach promoted providers to an EngineContext (raises FileNotFoundError if untrained)."""
     card = load_card(models_dir)
@@ -100,6 +127,8 @@ def attach_models(ctx, models_dir: Path = MODELS_DIR) -> None:
     cal = card["calibration"]
     if cal["promoted"]:
         ctx.calibration = {k: v["rate"] for k, v in cal["rates"].items()}
+        ctx.calibration_source = {k: f"simulated retrofit history (n={v['n_train']})" for k, v in cal["rates"].items()}
         ctx.calibration_name = "calibrated (realisation rates learned from past retrofits)"
+    apply_real_realisation(ctx)
     value = joblib.load(models_dir / "value_models.joblib")
     ctx.value_model = ValueModel(value["level"], value["hedonic"], card["version"])

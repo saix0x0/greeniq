@@ -93,7 +93,7 @@ def cmd_evaluate(args) -> int:
 def cmd_eval_grounding(args) -> int:
     from .evaluation.grounding import evaluate_grounding
 
-    o = evaluate_grounding(n_homes=args.n, llm_homes=args.llm)
+    o = evaluate_grounding(n_homes=args.n, llm_homes=args.llm, split=args.split, styles=tuple(args.styles.split(",")))
     c = o["clean_templates"]
     print(f"clean templates: {c['blocked']}/{c['texts']} wrongly blocked; corruptions caught: " +
           ", ".join(f"{k} {v['caught']}/{v['tried']}" for k, v in o["corruptions"].items()))
@@ -151,6 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     gr = sub.add_parser("eval-grounding", help="evaluate the grounding gate (and the LLM if a key is set) → reports/")
     gr.add_argument("--n", type=int, default=200, help="test homes")
     gr.add_argument("--llm", type=int, default=0, help="homes to explain with the language model (costs API credits)")
+    gr.add_argument("--split", default="validation", choices=["validation", "test"],
+                    help="tune on validation; run test once for the final report")
+    gr.add_argument("--styles", default="hybrid,full", help="comma-separated: hybrid (product default), full")
     gr.set_defaults(func=cmd_eval_grounding)
 
     es = sub.add_parser("edge-sweep", help="run every PS2 scenario invariant over all homes → reports/EDGE_CASES.md")

@@ -1,4 +1,5 @@
-"""Evaluation harness: ``greeniq evaluate``. Scores the held-out TEST split once.
+"""Evaluation harness: ``greeniq evaluate``. Reports every metric on the VALIDATION split (PS2 §13G),
+then scores the held-out TEST split once with the same metrics.
 
 This is the only place (besides the simulator) allowed to read the hidden truth
 (``data/truth/hidden.csv``), and it does so only to *grade* outputs: the counterfactual
@@ -41,9 +42,9 @@ REPORTS = ROOT / "reports"
 # 1. Baseline energy models
 # ------------------------------------------------------------------------------------------
 
-def eval_energy(ds, splits, weather) -> dict:
+def eval_energy(ds, splits, weather, split: str = "test") -> dict:
     df = energy_table(ds, splits)
-    te = df[df["split"] == "test"].reset_index(drop=True)
+    te = df[df["split"] == split].reset_index(drop=True)
     props = [ds.property(pid) for pid in te["property_id"]]
     X = feature_frame(props)
     models = joblib.load(MODELS_DIR / "energy_models.joblib")
@@ -57,7 +58,7 @@ def eval_energy(ds, splits, weather) -> dict:
         for t in sorted(te.assign(t=[p.property_type for p in props])["t"].unique()):
             m = np.array([p.property_type == t for p in props])
             by_type[t] = regression_metrics(y[m], gbm[m])["median_ape_pct"]
-        out[fuel] = {"test": {"global_median": regression_metrics(y, np.full(len(y), np.median(y))),
+        out[fuel] = {split: {"global_median": regression_metrics(y, np.full(len(y), np.median(y))),
                               "peer_median": regression_metrics(y, peer), "physics": regression_metrics(y, phys),
                               "gbm": regression_metrics(y, gbm)},
                      "gbm_median_ape_by_type": by_type}
@@ -79,8 +80,8 @@ def _naive(case) -> dict:
     return out
 
 
-def eval_savings(ds, splits, ctx_engine, card) -> dict:
-    test_ids = set(splits.loc[splits["split"] == "test", "property_id"])
+def eval_savings(ds, splits, ctx_engine, card, split: str = "test") -> dict:
+    test_ids = set(splits.loc[splits["split"] == split, "property_id"])
     cases, skipped = build_cases(ds, ctx_engine, test_ids)
     rates = {k: v["rate"] for k, v in card["calibration"]["rates"].items()}
     rows = []
@@ -185,8 +186,8 @@ def _true_inputs(row: dict) -> tuple[dict, float | None]:
     return inp, ann["purchased"]
 
 
-def eval_pipeline(ds, splits, truth, ctx) -> tuple[dict, pd.DataFrame]:
-    test_ids = list(splits.loc[splits["split"] == "test", "property_id"])
+def eval_pipeline(ds, splits, truth, ctx, split: str = "test") -> tuple[dict, pd.DataFrame]:
+    test_ids = list(splits.loc[splits["split"] == split, "property_id"])
     tr = truth.set_index("property_id")
     rows, score_rows = [], []
     feas = {"recommended": 0, "violations": 0, "violations_flagged_for_survey": 0, "truly_feasible": 0, "found": 0}
@@ -241,7 +242,7 @@ def eval_pipeline(ds, splits, truth, ctx) -> tuple[dict, pd.DataFrame]:
         pk, ip = f.package, (f.package.improvement_potential if f.package else None)
         v = f.value
         rows.append({
-            "property_id": pid, "customer_id": p.customer_id, "split": "test",
+            "property_id": pid, "customer_id": p.customer_id, "split": split,
             "score": f.score.score, "score_status": f.score.status, "band": f.score.band,
             "score_range_low": f.score.score_range[0] if f.score.score_range else None,
             "score_range_high": f.score.score_range[1] if f.score.score_range else None,
@@ -303,9 +304,9 @@ def eval_pipeline(ds, splits, truth, ctx) -> tuple[dict, pd.DataFrame]:
     for name, c in crit.items():
         top = set(poor.assign(c=c.values).nlargest(k, "c")["property_id"])
         ranking["methods"][name] = {
-            "spearman_vs_true_potential": round(float(spearmanr(c, truth_pot).statistic), 3),
+            "spearman_vs_true_potential": round(float(spearmanr(c, truth_pot, nan_policy="omit").statistic), 3),
             "top20pct_precision": round(len(top & true_top) / k, 3),
-            "spearman_with_floor_area": round(float(spearmanr(c, area).statistic), 3),
+            "spearman_with_floor_area": round(float(spearmanr(c, area, nan_policy="omit").statistic), 3),
         }
     feas_eval = {**feas, "violation_rate": round(feas["violations"] / max(feas["recommended"], 1), 4),
                  "recall": round(feas["found"] / max(feas["truly_feasible"], 1), 3), "by_measure": feas_by_measure}
@@ -313,10 +314,10 @@ def eval_pipeline(ds, splits, truth, ctx) -> tuple[dict, pd.DataFrame]:
     return {"score": score_eval, "ranking": ranking, "feasibility": feas_eval, "ms_per_home_with_models": timing}, preds
 
 
-def eval_rating(ds, splits, ctx) -> dict:
-    """Hide recorded SAPs on test homes and estimate them; compare with a peer-median baseline."""
+def eval_rating(ds, splits, ctx, split: str = "test") -> dict:
+    """Hide recorded SAPs on held-out homes and estimate them; compare with a peer-median baseline."""
     tr_ids = set(splits.loc[splits["split"] == "train", "property_id"])
-    te_ids = list(splits.loc[splits["split"] == "test", "property_id"])
+    te_ids = list(splits.loc[splits["split"] == split, "property_id"])
     train = [ds.property(pid) for pid in tr_ids]
     peer = pd.DataFrame([(p.property_type, p.age_band, p.sap_score) for p in train if p.sap_score is not None],
                         columns=["t", "a", "s"])
@@ -364,6 +365,17 @@ def eval_conflicts(ds, truth, ctx) -> dict:
 
 # ------------------------------------------------------------------------------------------
 
+def _finite(x):
+    """NaN/inf are not JSON: write them as null (a metric that could not be computed)."""
+    if isinstance(x, dict):
+        return {k: _finite(v) for k, v in x.items()}
+    if isinstance(x, list | tuple):
+        return [_finite(v) for v in x]
+    if isinstance(x, float | np.floating) and not np.isfinite(x):
+        return None
+    return x
+
+
 def evaluate_all(log=print) -> dict:
     t0 = time.time()
     ds, splits, truth = load_dataset(), load_splits(), load_truth()
@@ -373,6 +385,17 @@ def evaluate_all(log=print) -> dict:
     REPORTS.mkdir(exist_ok=True)
     m = {"git_commit": git_commit(), "model_version": card["version"], "evaluated_at": time.strftime("%Y-%m-%d %H:%M"),
          "split_counts": splits["split"].value_counts().to_dict()}
+    # PS2 §11/§13G: metrics and baseline comparisons on the VALIDATION set (where tuning happened),
+    # then the same metrics once on the untouched TEST set as the held-out confirmation.
+    log("validation set: energy, savings, pipeline, rating…")
+    v_pipe, _ = eval_pipeline(ds, splits, truth, ctx, "validation")
+    m["validation"] = {"energy": eval_energy(ds, splits, ctx.weather, "validation"),
+                       "savings": eval_savings(ds, splits, ctx_engine, card, "validation"),
+                       **v_pipe, "rating": eval_rating(ds, splits, ctx, "validation"),
+                       "value_cv": card["value"]["cv"], "value_chosen": card["value"]["chosen"]}
+    log("retrofit impacts on the brief's quantities…")
+    from .impacts import write as write_impacts
+    m["retrofit_impacts"] = write_impacts("validation")
     log("energy models…")
     m["energy"] = eval_energy(ds, splits, ctx.weather)
     log("savings vs observed retrofits…")
@@ -389,7 +412,7 @@ def evaluate_all(log=print) -> dict:
     m["validation_card"] = {"energy": card["energy"], "calibration": card["calibration"]["validation"],
                             "calibration_rates": card["calibration"]["rates"]}
     preds.drop(columns=["_true_potential_pct"]).to_csv(REPORTS / "test_predictions.csv", index=False)
-    (REPORTS / "metrics.json").write_text(json.dumps(m, indent=2, default=float), encoding="utf-8")
+    (REPORTS / "metrics.json").write_text(json.dumps(_finite(m), indent=2, default=float), encoding="utf-8")
     from .report import render
     (REPORTS / "EVALUATION.md").write_text(render(m), encoding="utf-8")
     log(f"done in {time.time() - t0:.0f}s → reports/EVALUATION.md, metrics.json, test_predictions.csv")

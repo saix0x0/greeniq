@@ -119,13 +119,16 @@ guidance.
 scaled by the home's loft, wall or window area, or kWp, with sources and price dates. Grant
 information is shown as information, not eligibility advice.
 
-## 5. Improvement potential and ranking (PS2 §04)
+## 5. Improvement potential and ranking (PS2 §3)
 
-**Improvement potential = 100 × (E_baseline − E_after) / E_baseline**, E = imports + gas, with
-E_after from the full feasible package. It is reported only when the baseline is **metered
-and non-zero**. With a zero baseline it is `unavailable` (undefined). With an estimated
-baseline it is `unavailable`, plus a separately labelled `indicative_pct` that is never used
-for ranking.
+**Improvement potential = 100 × (E_baseline − E_after) / E_baseline**, E = grid electricity
+imported + gas, both totals from the same anchored energy state (same convention), with E_after
+from the full feasible package. As PS2 §3 asks, it is `unavailable` only when the baseline is
+**zero** (undefined percentage) or **unavailable** (no baseline at all). When meters are too
+short and the baseline is a labelled model estimate, the potential is still reported and ranked,
+with `basis = "estimated"` shown next to it. (Until v1.2 such homes were excluded from the
+ranking; that was our own extra rule, not the brief's, and removed 6% of poor homes.)
+Only Poor and Very poor homes are ranked; ties break by property ID.
 
 ## 6. Carbon (`greeniq/engines/carbon.py`, `greeniq/config/emission_factors.json`)
 

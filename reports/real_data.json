@@ -146,7 +146,8 @@
         "pre_use_kwh_median": 15100.0
       },
       "engine_mean_pct": 6.4,
-      "realisation_vs_engine": 0.87
+      "engine_median_pct": 3.93,
+      "realisation_vs_engine": 1.42
     },
     "cavity": {
       "fuel": "gas",
@@ -173,6 +174,7 @@
         "pre_use_kwh_median": 16000.0
       },
       "engine_mean_pct": 22.12,
+      "engine_median_pct": 22.07,
       "realisation_vs_engine": 0.5
     },
     "solar_pv": {
@@ -200,8 +202,9 @@
         "pre_use_kwh_median": 3600.0
       },
       "engine_mean_pct": 26.21,
-      "realisation_vs_engine": 0.37
+      "engine_median_pct": 25.72,
+      "realisation_vs_engine": 0.38
     }
   },
-  "seconds": 17.8
+  "seconds": 18.1
 }

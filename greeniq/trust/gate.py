@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from ..facts import ComputedFacts
 
-GATE_VERSION = "grounding-gate/1.3"
+GATE_VERSION = "grounding-gate/1.4"
 
 MEASURE_WORDS = {
     "air_source_heat_pump": r"heat[- ]pumps?",
@@ -34,7 +34,7 @@ MEASURE_WORDS = {
     "glazing_upgrade": r"glazing|windows?",
     "smart_controls": r"thermostat|smart controls|heating controls",
 }
-DOWN = r"\b(cut|cuts|cutting|reduce[sd]?|reducing|lower[s]?|lowering|fall[s]?|falling|drop[s]?|dropping|decrease[sd]?|save[sd]?|saving|goes down|go down|less)\b"
+DOWN = r"\b(cut|cuts|cutting|reduce[sd]?|reducing|lower[s]?|lowering|fall[s]?|falling|fallen|fell|drop[s]?|dropping|decrease[sd]?|save[sd]?|saving|goes down|go down|less)\b"
 UP = r"\b(rise[s]?|rising|raise[sd]?|raising|increase[sd]?|increasing|goes up|go up|adds?|adding|more)\b"
 CAUSAL = (r"\bguarantee[sd]?\b|\bwill (definitely |certainly )?(increase|raise|boost|add to) (your|the) "
           r"(home|property|house)('s)? (value|price)\b|\bwill be worth\b|\bproves?\b")
@@ -173,6 +173,9 @@ def check_numbers(text: str, f: ComputedFacts) -> tuple[list[Claim], list[Violat
     return claims, viol
 
 
+CLASSIFY = re.compile(r"\bfall(?:s|ing)?\s+(?:(?:with)?in(?:to)?|under)\s+(?:the\s+)?[\"'\w\s-]{0,30}?\b(?:band|category|class|rating|bracket)\b")
+
+
 def check_direction(text: str, f: ComputedFacts) -> list[Violation]:
     if f.package is None:
         return []
@@ -180,7 +183,8 @@ def check_direction(text: str, f: ComputedFacts) -> list[Violation]:
     out = []
     for sentence in re.split(r"(?<=[.!?])\s+", re.sub(r"\([^)]*\)", "", text)):  # asides like "(net +890 kWh)" aside
         for clause in re.split(r";|,\s|\band\b|\bwhile\b|\bbut\b|\bwhereas\b", sentence, flags=re.IGNORECASE):
-            cl = clause.lower()
+            # "falls in/into/within/under the Good band" classifies; it is not a change in use
+            cl = CLASSIFY.sub(" ", clause.lower())
             fuels = [fu for fu, pat in (("electricity", r"electric"), ("gas", r"\bgas\b")) if re.search(pat, cl)]
             if len(fuels) != 1 or re.search(r"\b(net|baseline|today)\b", cl):
                 continue

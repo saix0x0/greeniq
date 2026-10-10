@@ -1,5 +1,5 @@
 {
-  "version": "retrofit-catalogue/1.0",
+  "version": "retrofit-catalogue/1.1",
   "price_basis": "Indicative installed costs, GBP, 2023-2026 prices. Secondary sources citing the Energy Saving Trust, RICS and MCS; real quotes vary widely. Shown as ranges, never as quotes.",
   "stages": {
     "1": "Fabric first: reduce heat loss",
@@ -12,79 +12,232 @@
       "name": "Loft insulation top-up to 270 mm",
       "stage": 1,
       "component": "insulation",
-      "engineering": {"target_loft_mm": 270},
-      "cost": {"basis": "per m2 of loft", "low": 12, "high": 22, "minimum": 450},
+      "engineering": {
+        "target_loft_mm": 270
+      },
+      "cost": {
+        "basis": "per m2 of loft",
+        "low": 12,
+        "high": 22,
+        "minimum": 450
+      },
       "cost_source": "EST via Rightmove (semi-detached avg ~GBP 930, July 2023 prices); HOA (~GBP 825)",
       "lifetime_years": 40,
-      "naive_flat_reduction": 0.15
+      "naive_flat_reduction": 0.15,
+      "applicability": {
+        "conditions": [
+          "The home has its own roof space (not a flat with a dwelling above)",
+          "Existing loft insulation below 200 mm",
+          "High suitability at 100 mm or less, Medium above that or when the depth is assumed"
+        ],
+        "not_needed_from_mm": 200,
+        "high_suitability_up_to_mm": 100
+      },
+      "ps2_illustrative_impact": {
+        "quantity": "space-heating energy demand",
+        "low_pct": 12,
+        "high_pct": 18
+      }
     },
     "cavity_wall_insulation": {
       "name": "Cavity wall insulation",
       "stage": 1,
       "component": "insulation",
-      "engineering": {"u_after": 0.5},
-      "cost": {"basis": "per m2 of external wall", "low": 18, "high": 35, "minimum": 1000},
+      "engineering": {
+        "u_after": 0.5
+      },
+      "cost": {
+        "basis": "per m2 of external wall",
+        "low": 18,
+        "high": 35,
+        "minimum": 1000
+      },
       "cost_source": "NerdWallet citing typical semi-detached ~GBP 2,700; Which? (RICS cost data, Nov 2024)",
       "lifetime_years": 40,
-      "naive_flat_reduction": 0.15
+      "naive_flat_reduction": 0.15,
+      "applicability": {
+        "conditions": [
+          "Cavity walls, not already insulated",
+          "High suitability when wall type and insulation are recorded; Medium when inferred from construction age (survey confirms)"
+        ]
+      },
+      "ps2_illustrative_impact": null
     },
     "solid_wall_insulation": {
       "name": "Solid wall insulation (internal or external)",
       "stage": 1,
       "component": "insulation",
-      "engineering": {"u_after": 0.35},
-      "cost": {"basis": "per m2 of external wall", "low": 80, "high": 180, "minimum": 6000},
+      "engineering": {
+        "u_after": 0.35
+      },
+      "cost": {
+        "basis": "per m2 of external wall",
+        "low": 80,
+        "high": 180,
+        "minimum": 6000
+      },
       "cost_source": "Industry ranges for internal (lower) and external (higher) wall insulation; highly variable",
       "lifetime_years": 36,
-      "naive_flat_reduction": 0.15
+      "naive_flat_reduction": 0.15,
+      "applicability": {
+        "conditions": [
+          "Solid walls, not already insulated",
+          "Medium suitability (cost and disruption); Low in a listed building or conservation area (consent)"
+        ]
+      },
+      "ps2_illustrative_impact": null
     },
     "glazing_upgrade": {
       "name": "Upgrade to modern double glazing",
       "stage": 1,
       "component": "glazing",
-      "engineering": {"u_after": 1.6, "infiltration_reduction": 0.08},
-      "cost": {"basis": "per m2 of window", "low": 250, "high": 500, "minimum": 2500},
+      "engineering": {
+        "u_after": 1.6,
+        "infiltration_reduction": 0.08
+      },
+      "cost": {
+        "basis": "per m2 of window",
+        "low": 250,
+        "high": 500,
+        "minimum": 2500
+      },
       "cost_source": "Typical UK market ranges (GBP 400-800 per window)",
       "lifetime_years": 25,
-      "naive_flat_reduction": 0.05
+      "naive_flat_reduction": 0.05,
+      "applicability": {
+        "conditions": [
+          "Single, secondary or pre-2002 double glazing",
+          "High for single, Medium for secondary, Low for pre-2002 double or in a listed building"
+        ]
+      },
+      "ps2_illustrative_impact": {
+        "quantity": "space-heating energy demand",
+        "low_pct": 8,
+        "high_pct": 12
+      }
     },
     "smart_controls": {
       "name": "Smart thermostat and heating controls",
       "stage": 2,
       "component": "smart_controls",
-      "engineering": {"heat_demand_reduction": 0.05},
-      "cost": {"basis": "per home", "low": 150, "high": 350},
+      "engineering": {
+        "heat_demand_reduction": 0.05
+      },
+      "cost": {
+        "basis": "per home",
+        "low": 150,
+        "high": 350
+      },
       "cost_source": "Retail smart thermostat plus installation",
       "lifetime_years": 12,
       "naive_flat_reduction": 0.05,
-      "evidence_note": "Published trials report anywhere from about 0% to 10%; 5% is a central assumption and is marked uncertain."
+      "evidence_note": "Published trials report anywhere from about 0% to 10%; 5% is a central assumption and is marked uncertain.",
+      "applicability": {
+        "conditions": [
+          "A wet (boiler or heat pump) heating system without smart controls",
+          "Not modelled for electric storage/direct heaters (they need heater-level controls)"
+        ]
+      },
+      "ps2_illustrative_impact": {
+        "quantity": "heating energy use",
+        "low_pct": 5,
+        "high_pct": 10
+      }
     },
     "air_source_heat_pump": {
       "name": "Air source heat pump",
       "stage": 3,
       "component": "heating_system",
-      "engineering": {"scop_best": 3.4, "scop_worst": 2.6, "hlc_per_m2_good": 1.2, "hlc_per_m2_poor": 3.4, "hot_water_cop_penalty": 0.6},
-      "cost": {"basis": "per home", "low": 10000, "high": 14000},
+      "engineering": {
+        "scop_best": 3.4,
+        "scop_worst": 2.6,
+        "hlc_per_m2_good": 1.2,
+        "hlc_per_m2_poor": 3.4,
+        "hot_water_cop_penalty": 0.6
+      },
+      "cost": {
+        "basis": "per home",
+        "low": 10000,
+        "high": 14000
+      },
       "cost_source": "EST (~GBP 14,000 installed), EDF (~GBP 13,000 average), before grant",
       "grant_note": "Boiler Upgrade Scheme: up to GBP 7,500 in England and Wales (Home Energy Scotland offers similar). Eligibility is not assessed here.",
       "lifetime_years": 20,
       "naive_flat_reduction": 0.25,
-      "evidence_note": "BUS requires a minimum SCOP of 2.8; monitored UK installations often achieve more. Leaky homes need higher flow temperatures and achieve lower SCOP."
+      "evidence_note": "BUS requires a minimum SCOP of 2.8; monitored UK installations often achieve more. Leaky homes need higher flow temperatures and achieve lower SCOP.",
+      "applicability": {
+        "conditions": [
+          "Not already heat-pump heated; outdoor space for the external unit",
+          "Suitability from the heat loss per m² AFTER the recommended fabric measures: High up to 2.0 W/K·m², Medium up to 2.8, Low above",
+          "One step more suitable when replacing electric storage/direct heating; one step less when outdoor space is unrecorded",
+          "Depends on the recommended fabric measures being done first"
+        ],
+        "high_suitability_max_hlc_per_m2": 2.0,
+        "medium_suitability_max_hlc_per_m2": 2.8
+      },
+      "ps2_illustrative_impact": {
+        "quantity": "purchased energy (electricity use may rise as gas use falls)",
+        "low_pct": 15,
+        "high_pct": 25
+      }
     },
     "solar_pv": {
       "name": "Solar PV panels",
       "stage": 4,
       "component": "renewables",
-      "engineering": {"size_kwp": {"detached": 4.0, "semi_detached": 3.5, "terraced": 3.0, "bungalow": 3.5},
-                      "yield_kwh_per_kwp": {"london": 930, "south_east": 960, "south_west": 980, "midlands": 890, "north": 840, "wales": 900, "scotland": 800},
-                      "orientation_factor": {"south": 1.0, "east_west": 0.85, "north": 0.6},
-                      "shading_factor": {"low": 1.0, "medium": 0.85, "high": 0.65},
-                      "self_consumption_min": 0.30, "self_consumption_max": 0.55},
-      "cost": {"basis": "per kWp", "low": 1300, "high": 2200},
+      "engineering": {
+        "size_kwp": {
+          "detached": 4.0,
+          "semi_detached": 3.5,
+          "terraced": 3.0,
+          "bungalow": 3.5
+        },
+        "yield_kwh_per_kwp": {
+          "london": 930,
+          "south_east": 960,
+          "south_west": 980,
+          "midlands": 890,
+          "north": 840,
+          "wales": 900,
+          "scotland": 800
+        },
+        "orientation_factor": {
+          "south": 1.0,
+          "east_west": 0.85,
+          "north": 0.6
+        },
+        "shading_factor": {
+          "low": 1.0,
+          "medium": 0.85,
+          "high": 0.65
+        },
+        "self_consumption_min": 0.3,
+        "self_consumption_max": 0.55
+      },
+      "cost": {
+        "basis": "per kWp",
+        "low": 1300,
+        "high": 2200
+      },
       "cost_source": "MCS installation data (~GBP 2,193 per kW, 2023); 2026 market quotes ~GBP 5,000-7,000 for 4 kWp",
       "lifetime_years": 25,
-      "naive_flat_reduction": 0.10,
-      "evidence_note": "Typical UK yield is roughly 800-1,000 kWh per kWp per year depending on location, orientation and shading."
+      "naive_flat_reduction": 0.1,
+      "evidence_note": "Typical UK yield is roughly 800-1,000 kWh per kWp per year depending on location, orientation and shading.",
+      "applicability": {
+        "conditions": [
+          "No existing PV; a roof that is not north-facing",
+          "Flats: infeasible unless top floor, where roof access needs the freeholder's consent (check first)",
+          "Listed building or conservation area: needs consent (check first), not ruled out",
+          "High for south-facing, Medium east/west or unknown orientation, Low with heavy shading",
+          "Sized after a heat pump, because the heat pump raises daytime electricity demand"
+        ]
+      },
+      "ps2_illustrative_impact": {
+        "quantity": "grid electricity imports",
+        "low_pct": 20,
+        "high_pct": 35
+      }
     }
-  }
+  },
+  "impact_note": "ps2_illustrative_impact quotes the brief's illustrative table (PS2 §4) verbatim: each row refers to its own quantity and they are not additive. Per PS2 §4 this catalogue's engineering parameters take precedence; reports/RETROFIT_IMPACTS.md sets the engine's modelled impact on the same quantity beside these ranges and beside measured savings in real UK homes (DESNZ NEED)."
 }

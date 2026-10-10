@@ -23,11 +23,9 @@ from dataclasses import dataclass, field
 
 from ..contract import Resolved
 from . import physics
-from .catalogue import measure
+from .catalogue import assumption, measure
 
 ENERGY_VERSION = "energy-sequential/1.1"  # 1.1: realised-HLC tracking (no super-additive fabric pairs)
-HEAT_UTILISATION = 0.85  # physics-only estimates: fraction of degree-day heat actually delivered
-COOKING_GAS_MAX = 250.0
 
 
 def boiler_efficiency(system: str, age: float | None) -> float:
@@ -100,9 +98,10 @@ class EnergyState:
         if gen <= 0:
             return 0.0
         e = measure("solar_pv")["engineering"]
+        lo, hi = assumption("solar.self_consumption_low_demand_kwh"), assumption("solar.self_consumption_high_demand_kwh")
         frac = e["self_consumption_min"] + (e["self_consumption_max"] - e["self_consumption_min"]) * min(
-            max((demand - 2500.0) / 7500.0, 0.0), 1.0)
-        return min(gen * frac, 0.6 * demand)
+            max((demand - lo) / (hi - lo), 0.0), 1.0)
+        return min(gen * frac, assumption("solar.self_consumption_max_share_of_demand") * demand)
 
     def electricity_demand(self) -> float:
         space = 0.0 if self.gas_heated else self.q_space / self.eff
@@ -156,7 +155,7 @@ def physics_estimate(p_type: str, inp: dict[str, Resolved], heating_system: str,
     """Physics-only annual purchased energy (used when meters can't provide a baseline)."""
     phys = physics.physical_state(p_type, inp)
     hlc = physics.heat_loss_coefficient(phys)
-    q_space = hlc * hdd_normal * 24 / 1000 * HEAT_UTILISATION
+    q_space = hlc * hdd_normal * 24 / 1000 * assumption("energy.heat_utilisation")
     tfa = phys["floor_area_m2"]
     q_hw = standard_hot_water_heat(tfa)
     other = 207.8 * (tfa * sap_occupancy(tfa)) ** 0.4714 + 350  # SAP 2012 appliance formula + cooking
@@ -210,10 +209,10 @@ def decompose(
         demand = imports + st.self_consumption(gen, demand)
 
     if st.gas_heated:
-        heat_fuel = baseline["gas"]["heating"] if baseline["gas"]["heating"] is not None else gas * 0.75
+        heat_fuel = baseline["gas"]["heating"] if baseline["gas"]["heating"] is not None else gas * assumption("energy.gas_heating_share_fallback")
         heat_fuel = min(heat_fuel, gas)
         base = gas - heat_fuel
-        cooking = min(COOKING_GAS_MAX, 0.15 * base)
+        cooking = min(assumption("energy.cooking_gas_max_kwh"), assumption("energy.cooking_gas_share_of_baseload") * base)
         st.cooking_gas = cooking
         st.q_space = heat_fuel * eff
         st.q_hw = (base - cooking) * eff
@@ -221,11 +220,11 @@ def decompose(
     else:
         heat_fuel = baseline["electricity"]["heating"]
         if heat_fuel is None:
-            heat_fuel = demand * 0.55
+            heat_fuel = demand * assumption("energy.electric_heating_share_fallback")
         heat_fuel = min(heat_fuel, demand)
         st.q_space = heat_fuel * eff
         base_elec = demand - heat_fuel
-        q_hw = min(standard_hot_water_heat(phys["floor_area_m2"]), 0.5 * base_elec * st.hw_efficiency())
+        q_hw = min(standard_hot_water_heat(phys["floor_area_m2"]), assumption("energy.hot_water_max_share_of_electric_baseload") * base_elec * st.hw_efficiency())
         st.q_hw = q_hw
         st.other_elec = max(base_elec - q_hw / st.hw_efficiency(), 0.0)
         st.cooking_gas = gas  # any gas in a non-gas-heated home is cooking (or a flagged conflict)

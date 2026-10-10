@@ -171,3 +171,11 @@ def test_hybrid_mode_blocks_any_model_number(hp, monkeypatch):
 def test_disclaimers_are_not_mistaken_for_value_promises(hp):
     assert check("This is not a guarantee of a price increase.", hp, "package").passed
     assert not check("This will increase your home's value.", hp, "package").passed
+
+
+def test_band_classification_is_not_a_direction_claim(hp):
+    assert hp.package.impact.electricity.saving_kwh < 0
+    assert check("The package falls in the Good band for electricity use.", hp, "package").passed
+    assert not check("The package saves electricity.", hp, "package").passed
+    gas = "This leads to a fall in gas consumption by much more."
+    assert check(gas, hp, "package").passed and check("Gas consumption has fallen more significantly.", hp, "package").passed

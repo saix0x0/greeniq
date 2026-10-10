@@ -230,3 +230,47 @@ def test_contract_rejects_impossible_values():
         full_house(sap_score=500)
     with pytest.raises(ValueError):
         Property(property_id="X", region="london", property_type="detached", flat_position="mid")
+
+
+def test_ps2_worked_example_p10001_is_poor():
+    """PS2 §2 example: rating E, high electricity and gas use, no solar, poor insulation, gas boiler, single
+    glazing → 38/100, Poor. The sub-score mappings are the team's (documented) choice, so we check the class
+    and that the score sits near the example, not the exact figure."""
+    import json
+    from pathlib import Path
+
+    from greeniq.context import load_context
+    from greeniq.contract import Property
+    from greeniq.pipeline import analyse_home
+
+    base = json.loads((Path(__file__).parent / "fixtures" / "sample_properties.json").read_text())[0]["property"]
+    gas = [m for m in base["meter_readings"] if m["fuel"] == "gas"]
+    total = sum(m["kwh"] for m in gas)
+    p = dict(base, property_id="P10001", epc_band="E", sap_score=45, wall_type="cavity", wall_insulated=False,
+             loft_insulation_mm=50, glazing="single", heating_system="gas_boiler_condensing", boiler_age_years=18,
+             controls="programmer_thermostat", solar_pv_kwp=0, floor_area_m2=90, age_band="1945_1964",
+             meter_readings=[{**m, "kwh": round(m["kwh"] * 14000 / total, 1)} for m in gas]
+             + [{"month": m["month"], "fuel": "electricity", "kwh": 400} for m in gas])
+    s = analyse_home(Property(**p), load_context()).score
+    assert s.band == "Poor" and 30 <= s.score <= 45
+
+
+def test_score_by_hand_from_the_ps2_formula():
+    """S = Σ w_k s_k worked by hand with the documented tables (docs/SCORING_METHOD.md), literal numbers only."""
+    r = compute_score(inputs_for(full_house(), sap=45, intensity=200))
+    subs = {c.key: c.sub_score for c in r.components}
+    assert subs == {
+        "energy_efficiency": 45.0,          # SAP 45 maps one-to-one
+        "consumption_intensity": 47.0,      # knot (200 kWh/m², 47)
+        "insulation": 34.25,                # 0.50×30 (cavity, unfilled) + 0.35×55 (loft 100 mm) + 0.15×0 (floor)
+        "heating_system": 62.0,             # condensing gas; 8-year boiler → no age penalty
+        "glazing": 70.0,                    # double glazing pre-2002
+        "renewables": 0.0,                  # no PV
+        "smart_controls": 40.0,             # programmer + room thermostat
+    }
+    # 0.25×45 + 0.20×47 + 0.15×34.25 + 0.15×62 + 0.10×70 + 0.10×0 + 0.05×40
+    # = 11.25 + 9.4 + 5.1375 + 9.3 + 7.0 + 0 + 2.0 = 44.0875 → 44 → Poor (30-49)
+    assert r.raw_score == pytest.approx(44.0875)
+    assert (r.score, r.band, r.is_poor) == (44, "Poor", True)
+    ins = next(c for c in r.components if c.key == "insulation")
+    assert "walls 50%, loft 35%, floor 15%" in ins.explanation  # the text states the weights actually used

@@ -122,7 +122,7 @@ def test_infeasible_retrofit_is_refused_with_a_reason(ctx):
     f = run(ctx, "FX-MID-FLAT", scenario=Scenario(name="flat solar", measures=["solar_pv", "glazing_upgrade"]))
     assert f.scenario.modelled == ["glazing_upgrade"]
     rej = {r.measure_id: r for r in f.scenario.rejected}
-    assert "solar_pv" in rej and "Flats" in rej["solar_pv"].reason
+    assert "solar_pv" in rej and rej["solar_pv"].status in ("infeasible", "needs_survey") and "roof" in rej["solar_pv"].reason
 
 
 def test_unmodelled_scenario_rejected_entirely_gives_no_numbers(ctx):
@@ -147,11 +147,13 @@ def test_zero_baseline_gives_unavailable_not_zero_percent(ctx):
     assert any("zero" in w.lower() for w in f.warnings)
 
 
-def test_estimated_baseline_reports_unavailable_with_labelled_indicative(ctx):
+def test_estimated_baseline_still_reports_potential_labelled_estimated(ctx):
+    """PS2 §3 makes the metric unavailable only for a zero or unavailable baseline, not an estimated one."""
     f = run(ctx, "FX-MISSING-DATA")
     assert f.baseline_basis == "estimated"
     ip = f.package.improvement_potential
-    assert ip.status == "unavailable" and ip.pct is None and ip.indicative_pct is not None
+    assert ip.status == "available" and ip.basis == "estimated"
+    assert ip.pct == pytest.approx(100 * (ip.e_baseline_kwh - ip.e_after_kwh) / ip.e_baseline_kwh, abs=0.05)
 
 
 # --- Carbon --------------------------------------------------------------------------------
@@ -221,3 +223,18 @@ def test_analysis_is_deterministic(ctx):
     a, b = run(ctx, "FX-POOR-SEMI"), run(ctx, "FX-POOR-SEMI")
     assert a.facts_id == b.facts_id
     assert a.model_dump(mode="json") == b.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("over,status", [
+    ({"property_type": "flat", "flat_position": "mid"}, "infeasible"),
+    ({"property_type": "flat", "flat_position": None}, "needs_survey"),
+    ({"property_type": "flat", "flat_position": "top", "roof_orientation": "south"}, "needs_survey"),
+    ({"listed_or_conservation": True, "roof_orientation": "south"}, "needs_survey"),
+])
+def test_solar_consent_cases_are_check_first_not_ruled_out(over, status):
+    """Only physical impossibility is 'infeasible'; consent or unknown facts are 'needs_survey' (check first)."""
+    from greeniq.engines.retrofit import plan_candidates
+    from greeniq.features.resolve import resolve_inputs
+    p = Property(**{**FIXTURES["FX-POOR-SEMI"]["property"], **over})
+    _, excl = plan_candidates(p, resolve_inputs(p), p.heating_system)
+    assert {e.measure_id: e.status for e in excl}["solar_pv"] == status

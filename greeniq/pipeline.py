@@ -22,7 +22,7 @@ from .contract import CONTRACT_VERSION, FUELS, Property, Receipt, Resolved
 from .data import AS_OF, Weather, annualise_property
 from .engines import physics, rating
 from .engines.carbon import CARBON_VERSION, carbon_reduction, emissions_kg
-from .engines.catalogue import catalogue, emission_factors, measure, stage_label
+from .engines.catalogue import assumptions, catalogue, emission_factors, measure, stage_label
 from .engines.energy import ENERGY_VERSION, EnergyState, apply_measure, boiler_efficiency, decompose, physics_estimate
 from .engines.nba import DEFAULT_OBJECTIVE, NBA_VERSION, select_next_best_action
 from .engines.retrofit import RETROFIT_VERSION, Excluded, plan_candidates
@@ -47,6 +47,7 @@ class EngineContext:
     as_of: str = AS_OF
     calibration: dict[str, float] = field(default_factory=dict)
     calibration_name: str = "engineering (uncalibrated)"
+    calibration_source: dict[str, str] = field(default_factory=dict)  # measure → where its realisation rate came from
     energy_estimator: object | None = None  # .name, .predict(p, inp) -> {fuel: kWh} | None
     value_model: object | None = None  # .name, .estimate(p, inp, sap_before, sap_after) -> ValueResult
 
@@ -281,7 +282,9 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
                 uncertainty=c.uncertainty, standalone=sa, in_package=ip, cost_low=lo, cost_high=hi, cost_basis=basis,
                 grant_note=measure(c.measure_id).get("grant_note"),
                 receipt=Receipt(output=f"plan.{c.measure_id}", value=sa.net_saving_kwh, unit="kWh/yr net purchased saving (standalone)",
-                                inputs={"suitability": c.suitability, "order": i + 1},
+                                inputs={"suitability": c.suitability, "order": i + 1,
+                                        "realisation_rate": cal.get(c.measure_id, 1.0),
+                                        "realisation_source": ctx.calibration_source.get(c.measure_id, "engineering (none)")},
                                 method="Sequential end-use model anchored on the metered baseline",
                                 method_version=f"{ENERGY_VERSION} · {RETROFIT_VERSION}",
                                 provider=ctx.calibration_name,
@@ -308,7 +311,7 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
         "defaults": DEFAULTS_VERSION, "annualisation": ANNUALISE_VERSION, "physics": physics.PHYSICS_VERSION,
         "energy": ENERGY_VERSION, "retrofit_rules": RETROFIT_VERSION, "rating": rating.RATING_VERSION,
         "carbon": CARBON_VERSION, "quality": QUALITY_VERSION, "catalogue": catalogue()["version"],
-        "emission_factors": emission_factors()["version"], "nba": NBA_VERSION,
+        "emission_factors": emission_factors()["version"], "nba": NBA_VERSION, "assumptions": assumptions()["version"],
     }
     fid = hashlib.sha256(json.dumps({"p": p.model_dump(mode="json"), "s": scenario.model_dump() if scenario else None,
                                      "c": constraints, "v": versions, "cal": ctx.calibration},
@@ -416,25 +419,23 @@ def _package(p, inp, ctx, scenario, ordered, excluded, base_state, base_p, stand
                  for m in chosen)
     e_after = impact.electricity.after_kwh + impact.gas.after_kwh
 
-    if baseline_basis == "metered" and e_base and e_base > 0:
-        e_b = impact.electricity.baseline_kwh + impact.gas.baseline_kwh
+    # PS2 §3: unavailable only when the baseline is zero or unavailable. A model-estimated baseline (too few
+    # meter months) is still a baseline: the potential is reported and ranked, labelled "estimated".
+    e_b = impact.electricity.baseline_kwh + impact.gas.baseline_kwh
+    if e_base and e_base > 0 and e_b > 0:
         pot = ImprovementPotential(status="available", pct=round(100 * (e_b - e_after) / e_b, 1), e_baseline_kwh=e_b,
-                                   e_after_kwh=e_after)
-    elif baseline_basis == "metered":
+                                   e_after_kwh=e_after, basis="metered" if baseline_basis == "metered" else "estimated",
+                                   reason=None if baseline_basis == "metered" else
+                                   "Baseline is a model estimate (too few meter readings); the percentage is an estimate on it.")
+    else:
         pot = ImprovementPotential(status="unavailable", e_baseline_kwh=0.0,
                                    reason="Baseline purchased energy is zero (e.g. an unoccupied home), so a percentage "
                                           "reduction is undefined.")
-    else:
-        e_b = impact.electricity.baseline_kwh + impact.gas.baseline_kwh
-        pot = ImprovementPotential(
-            status="unavailable", e_baseline_kwh=None,
-            reason="No metered baseline (too few meter readings), so improvement potential is not reported.",
-            indicative_pct=round(100 * (e_b - e_after) / e_b, 1) if e_b > 0 else None)
     pot.receipt = Receipt(output="package.improvement_potential", value=pot.pct, unit="%",
                           inputs={"e_baseline_kwh": pot.e_baseline_kwh, "e_after_kwh": e_after,
                                   "baseline_basis": baseline_basis},
                           method="100 × (E_baseline − E_after) / E_baseline; E = grid electricity imported + gas",
-                          method_version=PIPELINE_VERSION, sources=["Lloyds PS2 §04"])
+                          method_version=PIPELINE_VERSION, sources=["Lloyds PS2 §3 (improvement potential)"])
 
     inp_after = _inputs_after(inp, chosen, p.property_type)
     sap_after = rating.sap_after(sap.value, base_state, st) if sap.known else None

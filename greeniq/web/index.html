@@ -3,35 +3,46 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GreenIQ</title>
+  <title>GreenIQ — Green Home Score</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231f7a4d'/%3E%3Ctext x='16' y='22' font-size='17' font-family='system-ui' font-weight='700' text-anchor='middle' fill='white'%3EG%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%231f7a4d'/><text x='16' y='22' font-size='17' text-anchor='middle' fill='white' font-family='sans-serif'>G</text></svg>">
 </head>
 <body>
-  <div class="shell">
-    <aside class="side">
-      <div class="logo"><span class="logo-mark">G</span>GreenIQ</div>
-      <nav class="nav">
-        <a href="#/" data-nav="dashboard"><span class="ic">◆</span>Dashboard</a>
-        <a href="#/properties" data-nav="properties"><span class="ic">⌂</span>Properties</a>
-        <a href="#/lab" data-nav="lab" class="hero-nav"><span class="ic">⚡</span>Decision Lab</a>
-        <a href="#/analytics" data-nav="analytics"><span class="ic">◴</span>Analytics</a>
-        <a href="#/evidence" data-nav="evidence"><span class="ic">✓</span>Evidence</a>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="#/" title="Start again">
+        <span class="brand-mark">G</span>
+        <span><strong>GreenIQ</strong><small>Green Home Score · every number shows how it was worked out</small></span>
+      </a>
+      <nav class="seg" aria-label="View">
+        <a data-nav="home" href="#/home">One home</a>
+        <a data-nav="homes" href="#/homes">Many homes</a>
       </nav>
-      <div class="side-sep"></div>
-      <div class="side-foot">
-        <div class="mode">
-          <div class="mode-row"><span id="mode-label">Evidence mode</span>
-            <button class="switch" id="mode-switch" role="switch" aria-checked="true" aria-label="Evidence mode"></button></div>
-          <small id="mode-help">Every number shows its evidence tag; click a dotted number for its receipt.</small>
+      <form class="find" id="find" role="search">
+        <input id="find-q" placeholder="Home reference" autocomplete="off" aria-label="Home reference">
+        <button class="nav-btn primary" type="submit">Open</button>
+      </form>
+      <nav class="topbar-actions">
+        <a class="nav-btn" data-nav="how" href="#/how">How it works</a>
+        <button class="nav-btn icon" id="menu-btn" aria-haspopup="true" aria-expanded="false" title="Settings">⚙</button>
+        <div class="menu" id="menu" hidden>
+          <label class="menu-row"><span><b>Show evidence labels</b><small>Write “measured”, “estimate”, “assumed” next to numbers instead of a coloured dot.</small></span>
+            <button class="switch" id="src-switch" role="switch" aria-checked="false" aria-label="Show evidence labels"></button></label>
+          <label class="menu-row col"><b>“Do this first” should favour</b>
+            <select class="inp" id="obj">
+              <option value="value_for_money">Value for money (carbon saved per £)</option>
+              <option value="carbon">Most carbon saved</option>
+              <option value="energy">Most energy saved</option>
+            </select></label>
+          <label class="menu-row col"><b>Theme</b>
+            <select class="inp" id="theme"><option value="system">Match my device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
         </div>
-        <nav class="nav"><a href="#/settings" data-nav="settings"><span class="ic">⚙</span>Settings</a></nav>
-      </div>
-    </aside>
-    <main class="main" id="main"><div class="loading">Loading…</div></main>
+      </nav>
+    </header>
+    <main id="main"></main>
   </div>
-  <div class="tip" id="tip"></div>
-  <aside class="drawer" id="drawer" aria-label="Receipt"></aside>
+  <div class="tip" id="tip" role="tooltip"></div>
+  <aside class="drawer" id="drawer" aria-label="How this number was worked out"></aside>
   <script type="module" src="/static/app.js"></script>
 </body>
 </html>

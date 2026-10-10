@@ -1,15 +1,15 @@
 # GreenIQ — Green Home Score & Retrofit Recommendation Engine
 
 > ## 🔄 Live status (updated as work happens)
-> **Built and tested:** score, ranking, retrofits, per-fuel savings, carbon, value range, Next Best Action,
-> API + dashboard + Decision Lab, grounding gate, what-if assistant, local-LLM support (llama.cpp / Ollama /
-> free hosted / Claude). 177 tests pass; 0 violations in a 28,422-check sweep.
-> **Now:** real data (DESNZ NEED, 50,000 real homes) is in. R1–R4 are done: real energy model, real retrofit savings
-> (loft 5.6%, cavity 11.1% of gas; solar 9.8% of imports), and peer comparison in the product. R6 (LLM pass rate) is running;
-> R5, R7 and R8 are next. Results: [`reports/REAL_DATA.md`](reports/REAL_DATA.md).
-> **Read this first:** [`docs/STATUS_AND_PLAN.md`](docs/STATUS_AND_PLAN.md) (what's real vs synthetic, what's
-> done, what's next, and a prompt to paste into ChatGPT for advice).
-
+> **Now: a layer-by-layer audit against the PS2 sheet** (each formula checked by hand, fixed, tested), then the
+> dashboard rebuilt around the brief. Done so far: score (§2), poor homes and improvement potential (§3), upgrade
+> rules (§4), real-world savings calibration, evaluation on the validation set (§11/§13G), and the new dashboard
+> (one home answers the four questions; many homes compares homes and groups on every PS2 output). 199 tests pass.
+> **Fixed in this audit:** wrong insulation weights in user text; estimated-baseline homes wrongly left out of the
+> ranking; solar ruled "infeasible" where it only needs consent; real-home savings compared median-to-mean (loft
+> savings were understated); hidden constants moved to a documented assumptions file.
+> **Next:** layers §5–§8 (savings, carbon, value, AI explanations), then R5/R7/R8. Progress log:
+> [`docs/STATUS_AND_PLAN.md`](docs/STATUS_AND_PLAN.md) §6c.
 
 **Our solution to Lloyds Problem Statement 2.** GreenIQ answers a homeowner's four
 questions: *How green is my home today? What should I improve? How much energy and
@@ -37,18 +37,19 @@ Open **http://127.0.0.1:8000**. The first start analyses all 3,000 homes and cac
 Explanations come from the built-in template narrator, so everything works with no AI and no key.
 
 ### 3 · What to click (a 3-minute tour)
-1. **Dashboard**: portfolio KPIs, score bands, the triage queue (each home's Next Best Action).
-2. **Properties** → open a home (e.g. `P00007`):
-   - **Score breakdown**: 7 fixed-weight parts with points earned and lost.
-   - **Homes like yours** (`real data` badge): this home vs real DESNZ NEED homes of the same type, size and age.
-   - **Next Best Action** with three reasons; **recommendations** with per-fuel kWh, costs and real-evidence lines.
-   - **Ask a what-if**: e.g. "What if I only add a heat pump?" The engine reruns, and electricity goes **up** while gas goes down.
-   - **The grounding gate at work**: click *Show it*. An honest explanation passes; an invented number, a flipped
-     direction and a value promise are blocked.
-3. **Decision Lab**: named plans (lowest cost / greenest / best value / my budget), cost-vs-carbon frontier,
-   dependency graph, energy Sankey, interaction heatmap, sensitivity.
-4. **Analytics** and **Evidence**: model results vs baselines, data sources, receipts.
-   Toggle **Evidence mode** (sidebar) to see where every sentence and number comes from.
+Full script with verified demo homes: **[`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md)**. Desktop/laptop screen.
+
+1. **One home** (open an example from the start page). A decision strip reads like an insurer's case file:
+   **Green Home Score** (band, poor-efficiency flag, standing among similar homes) → **Priority** (Act now / Check
+   first / Worth doing / No action) → **Next best action** (cost, CO₂e, confidence) → **Before you act** (missing or
+   conflicting facts). Then five tabs: **Green Home Score**, **Improvements**, **Energy & carbon**, **Property value**,
+   **What if…**. The AI card explains the score and the recommendations; every figure is checked against the engine.
+2. **Many homes**: **Overview** (tiers and portfolio outputs), **Priority list** (click a row for a quick view, tick
+   up to four to compare), **Compare** (groups by region, type, age, heating, EPC band, score band, data quality).
+3. **How it works**: each formula from the brief with our parameters, validation vs simple baselines, assumptions.
+
+**AI provider.** Claude: `uv sync --extra llm` then `ANTHROPIC_API_KEY=… uv run python -m greeniq serve`.
+Ollama: `GREENIQ_LLM_PROVIDER=ollama uv run python -m greeniq serve`. No key: the checked template is used.
 
 ### 4 · Optional: a free local AI narrator (no API key, no cost)
 Any OpenAI-compatible local server works. Example with **llama.cpp** (~45 MB) and **Qwen2.5-1.5B** (~1.1 GB):

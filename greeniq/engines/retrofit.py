@@ -20,7 +20,7 @@ from ..contract import MEASURES, Property, Resolved
 from . import physics
 from .catalogue import measure, measure_name
 
-RETROFIT_VERSION = "retrofit-rules/1.0"
+RETROFIT_VERSION = "retrofit-rules/1.1"  # 1.1: thresholds from the catalogue; consent cases = needs_survey
 Suitability = Literal["High", "Medium", "Low"]
 ExclusionStatus = Literal["not_needed", "infeasible", "not_applicable", "needs_survey", "declined", "completed"]
 FABRIC = ("loft_insulation", "cavity_wall_insulation", "solid_wall_insulation", "glazing_upgrade")
@@ -44,7 +44,12 @@ class Excluded(BaseModel):
     reason: str
 
 
-def _ev(label: str, r: Resolved, fmt=lambda v: str(v)) -> str:
+def _rule(measure_id: str, key: str) -> float:
+    """An applicability threshold, documented in the retrofit catalogue (config/retrofit_catalogue.json)."""
+    return measure(measure_id)["applicability"][key]
+
+
+def _ev(label: str, r: Resolved, fmt=lambda v: ("yes" if v else "no") if isinstance(v, bool) else str(v).replace("_", " ")) -> str:
     tag = "" if r.basis in ("observed", "derived") else f" ({r.basis})"
     return f"{label}: {fmt(r.value)}{tag}"
 
@@ -83,11 +88,11 @@ def plan_candidates(
         exclude("loft_insulation", "needs_survey", "Whether the home has its own roof space is unknown (flat position not recorded).")
     elif has_loft.value is False:
         exclude("loft_insulation", "infeasible", has_loft.note or "No loft: another dwelling is above.")
-    elif loft.known and loft.value >= 200:
+    elif loft.known and loft.value >= _rule("loft_insulation", "not_needed_from_mm"):
         exclude("loft_insulation", "not_needed", f"Loft already has {loft.value} mm of insulation.")
     else:
         mm = loft.value if loft.known else None
-        suit: Suitability = "High" if mm is not None and mm <= 100 else "Medium"
+        suit: Suitability = "High" if mm is not None and mm <= _rule("loft_insulation", "high_suitability_up_to_mm") else "Medium"
         unc = ["Loft depth not recorded; assumed from construction age. A quick loft check confirms it."] if _assumed(loft) else []
         add("loft_insulation", suit, "Topping up to 270 mm cuts heat lost through the roof; it is cheap and quick.",
             [_ev("Loft insulation", loft, lambda v: f"{v} mm")], unc)
@@ -168,9 +173,11 @@ def plan_candidates(
             elif mid == "glazing_upgrade":
                 improved["glazing"] = "double_post_2002"
         hlc_now, hlc_fab = physics.hlc_per_m2(phys), physics.hlc_per_m2(improved)
-        suit = "High" if hlc_fab <= 2.0 else ("Medium" if hlc_fab <= 2.8 else "Low")
+        suit = ("High" if hlc_fab <= _rule("air_source_heat_pump", "high_suitability_max_hlc_per_m2")
+                else "Medium" if hlc_fab <= _rule("air_source_heat_pump", "medium_suitability_max_hlc_per_m2") else "Low")
         if effective_heating in ("electric_storage", "electric_direct") and suit != "High":
             suit = "High" if suit == "Medium" else "Medium"
+        hp = measure("air_source_heat_pump")["engineering"]
         unc = ["Real-world efficiency (SCOP) depends on design and installation quality."]
         if p.outdoor_space is None:
             unc.append("Outdoor space for the external unit not recorded; a site survey must confirm it.")
@@ -178,8 +185,8 @@ def plan_candidates(
         if is_flat:
             unc.append("Flats often need freeholder or landlord permission for an external unit.")
         add("air_source_heat_pump", suit,
-            "Replaces fossil or direct-electric heating with heat that is 2.6-3.4x more efficient; electricity use rises "
-            "while gas falls.",
+            f"Replaces fossil or direct-electric heating with heat that is {hp['scop_worst']}-{hp['scop_best']}x more "
+            "efficient; electricity use rises while gas falls.",
             [f"Current heating: {effective_heating.replace('_', ' ')}",
              f"Heat loss {hlc_now:.1f} W/K per m² now, {hlc_fab:.1f} after recommended fabric measures"],
             unc, depends=fabric_cands)
@@ -188,12 +195,18 @@ def plan_candidates(
     pv, orient, shade = inp["solar_pv_kwp"], p.roof_orientation, p.roof_shading
     if pv.known and pv.value and pv.value > 0:
         exclude("solar_pv", "not_needed", f"Already has {pv.value} kWp of solar PV.")
-    elif is_flat:
-        exclude("solar_pv", "infeasible", "Flats rarely have a private roof for panels.")
+    elif is_flat and p.flat_position is None:
+        exclude("solar_pv", "needs_survey", "Flat position not recorded: only a top-floor flat has a roof above it.")
+    elif is_flat and p.flat_position != "top":
+        exclude("solar_pv", "infeasible", "Not a top-floor flat: there is no roof above this home for panels.")
     elif orient == "north":
         exclude("solar_pv", "infeasible", "North-facing roof: generation would be too low to justify panels.")
+    elif is_flat:
+        exclude("solar_pv", "needs_survey", "Top-floor flat: the roof is usually shared, so panels need the freeholder's "
+                                            "consent. Check this first.")
     elif listed:
-        exclude("solar_pv", "infeasible", "Listed building or conservation area: roof panels usually need consent.")
+        exclude("solar_pv", "needs_survey", "Listed building or conservation area: roof panels usually need consent. "
+                                            "Check this first.")
     else:
         suit = "High" if orient == "south" else "Medium"
         if shade == "high":

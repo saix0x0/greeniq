@@ -18,6 +18,16 @@ def emission_factors() -> dict:
     return json.loads((CONFIG_DIR / "emission_factors.json").read_text(encoding="utf-8"))
 
 
+@lru_cache(maxsize=1)
+def assumptions() -> dict:
+    return json.loads((CONFIG_DIR / "assumptions.json").read_text(encoding="utf-8"))
+
+
+def assumption(key: str):
+    """The value of a documented judgement call (config/assumptions.json); KeyError if undocumented."""
+    return assumptions()["items"][key]["value"]
+
+
 def measure(measure_id: str) -> dict:
     return catalogue()["measures"][measure_id]
 

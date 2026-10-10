@@ -33,6 +33,8 @@ from .service import GreenIQService, UnknownProperty
 from .trust.assistant import interpret
 from .trust.gate import check as gate_check
 from .trust.llm import llm_status
+from .trust.llm import provider as llm_provider
+from .trust.llm import style as llm_style
 from .trust.narrator import explain, explain_package
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -101,8 +103,9 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
         """Methodology receipts: versions, providers, factors, costs, and the generated evaluation metrics."""
         import json
 
+        from .config import score_mappings as SM
         from .data import ROOT
-        from .engines.catalogue import catalogue, emission_factors
+        from .engines.catalogue import assumptions, catalogue, emission_factors
 
         def read(path):
             p = ROOT / path
@@ -114,7 +117,21 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
             "engine_key": s.engine_key, "versions": s.versions, "providers": s.providers,
             "emission_factors": emission_factors(),
             "measures": {k: {"name": m["name"], "stage": m["stage"], "cost": m["cost"], "cost_source": m.get("cost_source"),
-                             "lifetime_years": m.get("lifetime_years")} for k, m in cat["measures"].items()},
+                             "lifetime_years": m.get("lifetime_years"), "applicability": m.get("applicability"),
+                             "ps2_illustrative_impact": m.get("ps2_illustrative_impact"),
+                             "evidence_note": m.get("evidence_note")} for k, m in cat["measures"].items()},
+            "stages": cat["stages"], "price_basis": cat.get("price_basis"), "impact_note": cat.get("impact_note"),
+            "score": {"weights": SM.WEIGHTS, "labels": SM.LABELS, "bands": SM.BANDS, "version": SM.MAPPING_VERSION,
+                      "issue_threshold": SM.ISSUE_SUBSCORE_THRESHOLD,
+                      "mappings": {"intensity_kwh_m2": SM.INTENSITY_KNOTS, "loft_mm": SM.LOFT_KNOTS,
+                                   "walls": [[f"{t} {'insulated' if i else 'uninsulated'}", v] for (t, i), v in SM.WALL_SCORES.items()],
+                                   "insulation_element_weights": SM.INSULATION_ELEMENT_WEIGHTS,
+                                   "heating": SM.HEATING_LADDER, "boiler_age_penalty": SM.BOILER_AGE_PENALTY_KNOTS,
+                                   "glazing": SM.GLAZING_LADDER, "solar_kwp": SM.PV_KNOTS, "controls": SM.CONTROLS_LADDER,
+                                   "epc_band_midpoint": SM.EPC_BAND_MIDPOINT}},
+            "assumptions": assumptions(),
+            "real_data": read("reports/real_data.json"),
+            "calibration": {"name": s.ctx.calibration_name, "rates": s.ctx.calibration, "sources": s.ctx.calibration_source},
             "metrics": read("reports/metrics.json"), "model_card": read("models/model_card.json"),
             "data_card": "data/DATA_CARD.md", "evaluation_report": "reports/EVALUATION.md",
             "scoring_method": "docs/SCORING_METHOD.md", "methodology": "docs/METHODOLOGY.md",
@@ -124,17 +141,49 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
     def portfolio():
         return svc().portfolio()
 
+    @app.get("/api/portfolio/groups")
+    def portfolio_groups(by: str = "region"):
+        return svc().groups(by)
+
     @app.get("/api/properties")
     def properties(q: str | None = None, band: str | None = None, region: str | None = None,
                    property_type: str | None = None, disposition: str | None = None, poor_only: bool = False,
-                   sort: str = "property_id", limit: int = 50, offset: int = 0):
+                   sort: str = "property_id", limit: int = 50, offset: int = 0, ids: str | None = None,
+                   group_by: str | None = None, group: str | None = None, tier: str | None = None):
         return svc().search(q, band, region, property_type, disposition, poor_only, sort, min(max(limit, 1), 500),
-                            max(offset, 0))
+                            max(offset, 0), ids, group_by, group, tier)
 
     @app.get("/api/properties/{property_id}")
     def property_report(property_id: str):
         f = svc().facts(property_id)
-        return {"facts": f.model_dump(mode="json"), "explanation": explain(f, "home").model_dump()}
+        return {"facts": f.model_dump(mode="json"), "explanation": explain(f, "home", use_model=False).model_dump()}
+
+    explained: dict[tuple, dict] = {}
+
+    @app.get("/api/properties/{property_id}/explain")
+    def explain_endpoint(property_id: str, scope: str = "home", objective: str = DEFAULT_OBJECTIVE):
+        """The language-model explanation of the score (scope=home) or the recommendations (scope=package).
+        Reads the computed facts only; every sentence passes the grounding gate or the template is shown.
+        Cached per (facts, scope, provider) so a demo never pays twice for the same explanation."""
+        if scope not in ("home", "package"):
+            raise ValueError("scope must be 'home' or 'package'")
+        if objective not in OBJECTIVES:
+            raise ValueError(f"unknown objective {objective!r}; choose one of {sorted(OBJECTIVES)}")
+        f = svc().facts(property_id) if objective == DEFAULT_OBJECTIVE else \
+            svc().scenario(property_id, None, {"objective": objective})
+        prov = llm_provider()
+        key = (f.facts_id, scope, prov[0], llm_style())
+        if key not in explained:
+            ex = explain(f, scope)
+            out = {"explanation": ex.model_dump(), "provider": {"name": prov[0], "detail": prov[1]}}
+            if ex.mode != "llm" and prov[0] != "off" and "timed out" in (ex.note or ""):
+                return out  # do not cache transient failures
+            explained[key] = out
+        return explained[key]
+
+    @app.get("/api/properties/{property_id}/standing")
+    def standing(property_id: str):
+        return svc().standing(property_id)
 
     @app.get("/api/properties/{property_id}/next-best-action")
     def next_best_action(property_id: str, objective: str = DEFAULT_OBJECTIVE):

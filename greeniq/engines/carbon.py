@@ -1,4 +1,4 @@
-"""Carbon: ΔC = Σ_f ΔE_f × EF_f, f ∈ {electricity, gas} (PS2 §07).
+"""Carbon: ΔC = Σ_f ΔE_f × EF_f, f ∈ {electricity, gas} (PS2 §6).
 
 ΔE_f = baseline kWh − after kWh, so a positive value is a saving and a negative value an
 increase. Positive ΔC is an emissions reduction. Signs are never hidden or clipped.

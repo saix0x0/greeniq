@@ -34,11 +34,11 @@ For each home that installed a measure in year *y*: the change in use from *y−
 
 | Measure | Fuel | Homes (train+val) | Real saving | 90% interval | ≈ kWh/yr | Test-split check | GreenIQ engine predicts | Realisation |
 |---|---|---|---|---|---|---|---|---|
-| loft | gas | 4,452 | **5.6%** | 5.2% to 6.1% | 829 | 7.3% (n=768) | 6.4% | 0.87 |
+| loft | gas | 4,452 | **5.6%** | 5.2% to 6.1% | 829 | 7.3% (n=768) | 3.9% | 1.42 |
 | cavity | gas | 3,725 | **11.1%** | 10.5% to 11.6% | 1,613 | 11.6% (n=644) | 22.1% | 0.50 |
-| solar pv | electricity | 381 | **9.8%** | 5.2% to 12.2% | 310 | 7.3% (n=71) | 26.2% | 0.37 |
+| solar pv | electricity | 381 | **9.8%** | 5.2% to 12.2% | 310 | 7.3% (n=71) | 25.7% | 0.38 |
 
-*Realisation* = real saving ÷ the engine's mean predicted saving for that measure across the app's homes (engineering estimate, uncalibrated). Below 1 means real installs save less than physics predicts. This is the well-known performance gap, which can come from top-up installs, comfort take-back or installation quality.
+*Realisation* = real median saving ÷ the engine's median predicted saving for that measure across the app's homes (engineering estimate, uncalibrated). Below 1 means real installs save less than physics predicts. This is the well-known performance gap, which can come from top-up installs, comfort take-back or installation quality.
 
 ## 3. Limitations
 

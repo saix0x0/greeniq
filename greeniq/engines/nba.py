@@ -21,6 +21,7 @@ Selection rule (documented in docs/METHODOLOGY.md §NBA):
 
 from __future__ import annotations
 
+from .catalogue import assumption
 from ..facts import ComputedFacts, NBAAction, NBAAlternative, NBAReason, NextBestAction, Recommendation
 
 NBA_VERSION = "nba/1.0"
@@ -30,16 +31,13 @@ NBA_VERSION = "nba/1.0"
 # "value_for_money" divides by the mid cost with a £1,000 floor: below about £1k the price
 # is not what decides, so very cheap jobs compete on carbon rather than winning on a tiny
 # denominator (without the floor a £250 thermostat outranks every fabric measure).
-COST_FLOOR_GBP = 1000.0
 OBJECTIVES = {
     "value_for_money": ("kg CO2e/yr per £1k (mid cost, £1k floor)",
-                        lambda r: r.standalone.carbon.total_kg / max((r.cost_low + r.cost_high) / 2, COST_FLOOR_GBP) * 1000),
+                        lambda r: r.standalone.carbon.total_kg / max((r.cost_low + r.cost_high) / 2, assumption("nba.cost_floor_gbp")) * 1000),
     "carbon": ("kg CO2e/yr", lambda r: r.standalone.carbon.total_kg),
     "energy": ("kWh/yr net purchased", lambda r: r.standalone.net_saving_kwh),
 }
 DEFAULT_OBJECTIVE = "value_for_money"
-SUITABILITY_WEIGHT = {"High": 1.0, "Medium": 0.7, "Low": 0.4}
-MIN_CARBON_KG = 25.0  # below ~25 kg CO2e/yr a measure is not worth leading with
 _LEVEL = {"high": 2, "medium": 1, "low": 0}
 
 
@@ -166,26 +164,30 @@ def _eligible(f: ComputedFacts) -> list[int]:
 
 def _rank(f: ComputedFacts, objective: str) -> list[tuple[float, int]]:
     _, fn = OBJECTIVES[objective]
-    ranked = [(fn(f.plan[i]) * SUITABILITY_WEIGHT[f.plan[i].suitability], i) for i in _eligible(f)
-              if f.plan[i].standalone.carbon.total_kg >= MIN_CARBON_KG]
+    ranked = [(fn(f.plan[i]) * assumption("nba.suitability_weight")[f.plan[i].suitability], i) for i in _eligible(f)
+              if f.plan[i].standalone.carbon.total_kg >= assumption("nba.min_carbon_kg")]
     return sorted(ranked, key=lambda x: (-x[0], f.plan[x[1]].order))
 
 
-def _alternatives(f: ComputedFacts, objective: str, exclude: int | None, why: str) -> list[NBAAlternative]:
+def _alternatives(f: ComputedFacts, objective: str, exclude: int | None, why: str,
+                  best: float | None = None) -> list[NBAAlternative]:
     out = []
+    unit = OBJECTIVES[objective][0]
     for score, i in _rank(f, objective):
         if i == exclude:
             continue
         r = f.plan[i]
+        reason = why if best is None else (f"{score:,.0f} vs {best:,.0f} {unit} for the first choice"
+                                           + (" (weighted by its lower suitability)" if r.suitability != "High" else ""))
         out.append(NBAAlternative(action=NBAAction(kind="retrofit", ref=r.measure_id, label=r.name),
-                                  benefit=round(score, 1), why_not_first=why))
+                                  benefit=round(score, 1), why_not_first=reason))
     pending = {r.measure_id for r in f.plan}
     for r in f.plan:
         waiting = [m for m in r.depends_on if m in pending]
         if waiting:
             out.append(NBAAlternative(action=NBAAction(kind="retrofit", ref=r.measure_id, label=r.name),
                                       why_not_first=f"after {', '.join(w.replace('_', ' ') for w in waiting)}"))
-    return out[:4]
+    return out
 
 
 def select_next_best_action(f: ComputedFacts, objective: str = DEFAULT_OBJECTIVE) -> NextBestAction:
@@ -209,7 +211,7 @@ def select_next_best_action(f: ComputedFacts, objective: str = DEFAULT_OBJECTIVE
                                      text=f"Already in place: {', '.join(not_needed)}."))
         if f.plan and not zero_use:
             reasons.append(NBAReason(code="small_benefit", fact_ref="plan",
-                                     text=f"No remaining feasible measure saves more than {MIN_CARBON_KG:.0f} kg CO2e a year."))
+                                     text=f"No remaining feasible measure saves more than {assumption("nba.min_carbon_kg"):.0f} kg CO2e a year."))
         return NextBestAction(
             action=NBAAction(kind="no_action", label="No action needed now"), disposition="no_action",
             headline="Nothing worth doing right now." if not zero_use
@@ -225,5 +227,5 @@ def select_next_best_action(f: ComputedFacts, objective: str = DEFAULT_OBJECTIVE
         action=NBAAction(kind="retrofit", ref=r.measure_id, label=r.name), disposition="recommend",
         headline=f"Next: {r.name.lower()}.",
         reasons=_retrofit_reasons(f, i, objective), objective=objective, benefit=round(score, 1), benefit_unit=unit,
-        confidence=conf, alternatives=_alternatives(f, objective, exclude=i, why="ranks lower on the objective"),
+        confidence=conf, alternatives=_alternatives(f, objective, exclude=i, why="ranks lower on the objective", best=score),
         method_version=NBA_VERSION)
