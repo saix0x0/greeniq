@@ -15,15 +15,73 @@ uv run python -m greeniq serve      # → http://127.0.0.1:8000  (dashboard + AP
 
 First start analyses all 3,000 homes once and caches them in `var/` (~10 s); later starts take ~3 s.
 Other commands: `uv run python -m greeniq analyse P00007` (one home, incl. its Next Best Action) ·
-`uv run pytest` · `uv run python -m greeniq evaluate`. Build progress: [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md).
+`uv run pytest` (134 tests) · `uv run python -m greeniq evaluate` · `uv run python -m greeniq eval-grounding`.
 
-> **Status:** engine, ML, evaluation, Next Best Action, API and core dashboard are built and tested
-> (see the build journal). Decision Lab and grounded AI are next.
+> **Status (2026-10-10):** engine, ML, evaluation, Next Best Action, API, the full dashboard and the
+> Decision Lab are **built and tested** (134 passing). Grounded AI (**P5**) is **in progress** —
+> the grounding gate, the gated explain pipeline, the what-if assistant and the groundedness eval
+> are done; the remaining P5 steps (and the one known gap) are listed below and in detail in
+> [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md). **Read that journal first to continue the build.**
 >
 > **Data:** the running app uses a documented **synthetic** world (simulated homes, meters and
 > sales with hidden truth the engines never see; [`data/DATA_CARD.md`](data/DATA_CARD.md)).
 > [`dataset.md`](dataset.md) records the DESNZ NEED anonymised sample (Open Government Licence v3.0)
 > as the real-data reference.
+
+---
+
+## Project state & how to continue (handoff)
+
+**Everything below is on branch `beautiful`; `main` is kept in sync (fast-forward, never force-push).**
+
+| Phase | What it delivers | Status |
+|---|---|---|
+| P1 Stabilise | verified engine (88 tests), merged `main` in | ✅ |
+| P2 Next Best Action | one action per home from computed facts, 3 traced reasons, respects prerequisites | ✅ |
+| P3 API + dashboard | one-port no-build web app; portfolio, properties, property view, analytics, evidence | ✅ |
+| P4 Decision Lab | Choose Your Plan, cost-vs-carbon frontier, dependency graph, energy Sankey, interaction heatmap, sensitivity | ✅ |
+| P5 Grounded AI | grounding gate, gated explain, what-if assistant, groundedness eval ✅ · LLM wiring + tests + UI + e2e sweep + docs ⬜ | 🔄 |
+
+**Key files** — engine: [`greeniq/pipeline.py`](greeniq/pipeline.py) (`analyse_home` → `ComputedFacts`, the single
+source of every number); NBA: [`greeniq/engines/nba.py`](greeniq/engines/nba.py); Decision Lab:
+[`greeniq/lab.py`](greeniq/lab.py); API: [`greeniq/api.py`](greeniq/api.py); UI: [`greeniq/web/`](greeniq/web/);
+grounded AI: [`greeniq/trust/`](greeniq/trust/) (`gate.py`, `narrator.py`, `llm.py`, `assistant.py`, `prompts.py`).
+
+**Remaining P5 work (full detail in [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)):**
+1. **Known gap first** — role-aware number matching in the gate (one invented number currently slips
+   through because it coincidentally equals a different fact; a "saves X" claim should only match a
+   *saving* figure, not any number).
+2. Tests for the gate / assistant / fallback (`tests/test_trust.py`).
+3. UI: an "Ask a what-if" box and a gate-demo panel.
+4. End-to-end edge-case sweep (missing meters, zero use, conflicts, infeasible + interacting retrofits).
+5. Docs: `docs/LLM.md` (artifact E), `docs/RESPONSIBLE_AI.md` (artifact H); then commit + push.
+
+### The grounded-AI (LLM) layer — and testing it for free
+
+The PS2 brief requires an LLM that **only explains** computed results and answers what-ifs (it must never
+calculate or invent numbers); it is worth 15% of the score (artifact E). Our design keeps that boundary:
+
+- The engine computes every number; the LLM only rewrites a fact sheet into plain English.
+- A **grounding gate** ([`greeniq/trust/gate.py`](greeniq/trust/gate.py)) checks every explanation (numbers,
+  units, per-fuel direction, causal value wording, scenario identity). **Anything that fails never reaches the
+  user — the deterministic template explanation is shown instead.**
+- The app runs fully **with the LLM off** (no key needed) on that template narrator.
+
+Because the gate checks the *text*, not the model, **any LLM can be used to exercise the path** — including
+free ones. The LLM call is isolated in [`greeniq/trust/llm.py`](greeniq/trust/llm.py):
+
+- **Default:** Claude (`claude-opus-5-5`), used only if `ANTHROPIC_API_KEY` is set and `uv sync --extra llm`
+  has installed the `anthropic` package. Each explanation shown is then one API call.
+- **Free testing (not yet wired — see P5 step, pick one):** add an OpenAI-compatible branch (uses `httpx`,
+  already a dependency — no new package) pointed via env vars at a free endpoint:
+  - **Ollama (local, no key, offline):** install Ollama, `ollama pull llama3.1`, point at `http://localhost:11434/v1`.
+  - **Groq / Google Gemini / OpenRouter free tiers:** sign up, paste a free key, point at their OpenAI-compatible URL.
+  - A weaker free model is a *good* stress test: if its hallucinations get caught and fall back to the template,
+    that demonstrates the safety design.
+- **`GREENIQ_LLM=off`** forces the template narrator regardless of keys.
+
+Run the groundedness evaluation (ER-4): `uv run python -m greeniq eval-grounding` (add `--llm N` to also run the
+model on N homes once a provider is configured) → [`reports/GROUNDING.md`](reports/GROUNDING.md).
 
 > **Prototype implementation:** a working deterministic Python prototype now lives in
 > [`greenpath_home/`](greenpath_home/). It uses generated sample data and includes
