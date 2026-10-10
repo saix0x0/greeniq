@@ -268,13 +268,16 @@ async function loadFacts(id) {
 }
 const TIER_FALLBACK = { act_now: "Act now", check_first: "Check first", worth_doing: "Worth doing", no_action: "No action now" };
 const issueText = (i) => i.text.replace(/\s*\([^()]*points available\)\s*$/, "");
+let BAND_EDGES = []; // [label, low, high] from the engine's config (/api/evidence → score.bands)
 const HOME_TABS = [["score", "Green Home Score"], ["improve", "Improvements"], ["savings", "Energy & carbon"], ["value", "Property value"], ["whatif", "What if…"]];
 const objName = () => ({ value_for_money: "value for money (CO₂e saved per £)", carbon: "the most CO₂e saved", energy: "the most energy saved" }[S.objective]);
 
 async function home(main, id, live, qs) {
-  const [{ facts: f, explanation }, rowRes, stand, p] = await Promise.all([
+  const [{ facts: f, explanation }, rowRes, stand, p, ev] = await Promise.all([
     loadFacts(id), api(`/api/properties?ids=${encodeURIComponent(id)}&limit=1`).catch(() => null),
-    api(`/api/properties/${encodeURIComponent(id)}/standing`).catch(() => null), once("portfolio", () => api("/api/portfolio"))]);
+    api(`/api/properties/${encodeURIComponent(id)}/standing`).catch(() => null), once("portfolio", () => api("/api/portfolio")),
+    once("evidence", () => api("/api/evidence"))]);
+  BAND_EDGES = [...ev.score.bands].sort((a, b) => a[0] - b[0]).map(([lo, hi, label]) => [label, lo, hi]);
   if (!live()) return;
   remember(f);
   const row = rowRes?.items?.[0] || {};
@@ -396,7 +399,7 @@ async function loadAI(el, f, scope, live) {
 function tabScore(el, f, ex, live, stand) {
   const s = f.score;
   const pos = s.score ?? (s.score_range ? (s.score_range[0] + s.score_range[1]) / 2 : null);
-  const scale = `<div class="bandscale">${[["Very poor", 0, 29], ["Poor", 30, 49], ["Moderate", 50, 64], ["Good", 65, 79], ["Highly efficient", 80, 100]]
+  const scale = `<div class="bandscale">${BAND_EDGES
     .map(([bn, lo, hi]) => `<div style="flex:${hi - lo + 1};background:${bandColor(bn)}" class="${bn === s.band ? "here" : ""} ${["Good", "Highly efficient"].includes(bn) ? "dark" : ""}"><span>${bn}</span><small>${lo}–${hi}</small></div>`).join("")}
     ${pos != null ? `<i class="marker" style="left:${pos}%"><b>${s.score ?? s.score_range.join("–")}</b></i>` : ""}</div>`;
   const rows = s.components.map((c) => `<tr>

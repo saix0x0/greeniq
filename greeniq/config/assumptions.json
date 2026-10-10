@@ -3,82 +3,106 @@
   "note": "Every judgement call the engines make that is not a published constant (SAP formula, U-values, catalogue costs, emission factors live in their own sourced files). Change a value here and the engine key changes, so cached results are recomputed. Shown on the How it works page.",
   "items": {
     "energy.heat_utilisation": {
-      "value": 0.85, "unit": "fraction",
+      "value": 0.85,
+      "unit": "fraction",
       "used_for": "Physics-only heat estimate (no meters): share of degree-day heat loss actually delivered as heating.",
       "why": "Homes are not heated to the base temperature all day or in every room; SAP-style intermittency/utilisation factors sit around 0.8-0.9.",
       "source": "BRE SAP 10.2 utilisation-factor method (approximation)"
     },
     "energy.gas_heating_share_fallback": {
-      "value": 0.75, "unit": "fraction of annual gas",
+      "value": 0.75,
+      "unit": "fraction of annual gas",
       "used_for": "Splitting gas into space heating vs. hot water/cooking ONLY when the degree-day regression on the home's own meters is unavailable.",
       "why": "Space heating is roughly three-quarters of domestic gas in Great Britain.",
       "source": "DESNZ Energy Consumption in the UK (ECUK), domestic end use tables"
     },
     "energy.electric_heating_share_fallback": {
-      "value": 0.55, "unit": "fraction of electricity demand",
+      "value": 0.55,
+      "unit": "fraction of electricity demand",
       "used_for": "Same split for electrically heated homes when the meter regression is unavailable.",
       "why": "In electrically heated homes heating is the largest single end use, a little over half of demand.",
       "source": "DESNZ ECUK domestic end use; storage-heater tariff studies (approximation)"
     },
     "energy.cooking_gas_share_of_baseload": {
-      "value": 0.15, "unit": "fraction of non-heating gas",
+      "value": 0.15,
+      "unit": "fraction of non-heating gas",
       "used_for": "Gas used for cooking (not hot water) in gas-heated homes.",
       "why": "Hob/oven gas is a small part of non-heating gas; the rest heats water.",
       "source": "Engineering judgement informed by DESNZ ECUK domestic end-use shares (approximation)"
     },
     "energy.cooking_gas_max_kwh": {
-      "value": 250.0, "unit": "kWh/yr",
+      "value": 250.0,
+      "unit": "kWh/yr",
       "used_for": "Upper limit on cooking gas.",
       "why": "Typical gas cooking is a few hundred kWh a year at most.",
       "source": "DESNZ ECUK domestic end use"
     },
     "energy.hot_water_max_share_of_electric_baseload": {
-      "value": 0.5, "unit": "fraction",
+      "value": 0.5,
+      "unit": "fraction",
       "used_for": "Cap on electric hot water inferred from non-heating electricity, so appliances are never assigned zero.",
       "why": "Guard rail against attributing all baseload to hot water.",
       "source": "Engineering judgement (guard rail)"
     },
     "solar.self_consumption_low_demand_kwh": {
-      "value": 2500.0, "unit": "kWh/yr",
+      "value": 2500.0,
+      "unit": "kWh/yr",
       "used_for": "Demand at or below which solar self-consumption is at the catalogue minimum.",
       "why": "Low-use homes are out during the day and export most generation.",
       "source": "Energy Saving Trust solar self-consumption guidance (approximation)"
     },
     "solar.self_consumption_high_demand_kwh": {
-      "value": 10000.0, "unit": "kWh/yr",
+      "value": 10000.0,
+      "unit": "kWh/yr",
       "used_for": "Demand at or above which self-consumption reaches the catalogue maximum.",
       "why": "High daytime demand (e.g. a heat pump) absorbs more generation.",
       "source": "Energy Saving Trust solar self-consumption guidance (approximation)"
     },
     "solar.self_consumption_max_share_of_demand": {
-      "value": 0.6, "unit": "fraction of demand",
+      "value": 0.6,
+      "unit": "fraction of demand",
       "used_for": "Solar can never offset more than this share of a home's electricity demand without a battery.",
       "why": "Generation and demand do not coincide (evenings, winter).",
       "source": "Energy Saving Trust; MCS self-consumption tables (approximation)"
     },
     "nba.cost_floor_gbp": {
-      "value": 1000.0, "unit": "£",
+      "value": 1000.0,
+      "unit": "£",
       "used_for": "\"Value for money\" divides carbon saved by mid cost, never by less than this.",
       "why": "Below about £1k the price is not what decides; without a floor a £250 thermostat outranks every fabric measure on a tiny denominator.",
       "source": "Design choice (documented in docs/METHODOLOGY.md)"
     },
     "nba.min_carbon_kg": {
-      "value": 25.0, "unit": "kg CO2e/yr",
+      "value": 25.0,
+      "unit": "kg CO2e/yr",
       "used_for": "A measure saving less than this is not proposed as the one thing to do first.",
       "why": "Leading with a negligible saving would waste the customer's attention.",
       "source": "Design choice"
     },
     "nba.suitability_weight": {
-      "value": {"High": 1.0, "Medium": 0.7, "Low": 0.4}, "unit": "multiplier",
+      "value": {
+        "High": 1.0,
+        "Medium": 0.7,
+        "Low": 0.4
+      },
+      "unit": "multiplier",
       "used_for": "Down-weights less suitable measures when choosing what to do first.",
       "why": "A slightly smaller saving that is very likely to work beats a larger one that may not.",
       "source": "Design choice"
     },
     "calibration.real_evidence_min_homes": {
-      "value": 300, "unit": "homes",
+      "value": 300,
+      "unit": "homes",
       "used_for": "Minimum number of real retrofitted homes (DESNZ NEED) before their measured savings replace the simulator-learned calibration for a measure.",
       "why": "Below this the real estimate's interval is too wide to override the model.",
       "source": "Design choice; see reports/REAL_DATA.md for each measure's interval"
+    },
+    "benchmark.min_similar_homes": {
+      "value": 30,
+      "unit": "homes",
+      "used_for": "Minimum number of similar homes (same type and age band) before a home's score is ranked among them.",
+      "why": "Below this a percentile moves too much with one home to mean anything.",
+      "source": "Design choice"
     }
   }
 }

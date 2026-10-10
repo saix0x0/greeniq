@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .context import load_context
 from .data import DATA_DIR, ROOT, load_dataset
+from .engines.catalogue import assumption
 from .engines.ranking import RANKING_VERSION, TIERS, portfolio_row, priority_tier, rank_poor_homes
 from .facts import ComputedFacts, Scenario
 from .pipeline import analyse_home
@@ -179,7 +180,7 @@ class GreenIQService:
                "similar": {**pct(same), "definition": f"{me['property_type'].replace('_', ' ')} homes, {me['age_band'].replace('_', ' ')}"},
                "population": "homes in this (simulated) portfolio, scored with the same engine version",
                "method": "mid-rank percentile: % scoring lower + half of equal scores"}
-        if out["similar"]["homes"] < 30:
+        if out["similar"]["homes"] < assumption("benchmark.min_similar_homes"):
             out["similar"] = {"available": False, "reason": f"only {out['similar']['homes']} similar homes; too few to rank"}
         return out
 

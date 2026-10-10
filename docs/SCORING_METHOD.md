@@ -147,3 +147,12 @@ We never fill a missing component with zero or an average just to produce a numb
 | Solar PV | None |
 | Boiler age | 12 years |
 | Heating system, floor area, construction age | **No default**: left missing |
+
+## The brief's worked example (P10001)
+
+PS2 §2 illustrates "rating E, high electricity and gas use, no solar, poor insulation, gas boiler, single
+glazing → 38/100, Poor". The brief leaves the sub-score mappings to each team, so we do not tune our tables to
+reproduce 38. A home built to that description (EPC E / SAP 45, ~200 kWh/m², unfilled cavity, 50 mm loft,
+single glazing, condensing gas boiler, programmer + thermostat, no PV) scores **34, Poor** with our mappings — the
+same classification. With an older non-condensing boiler it scores 30 (still Poor). Test:
+`tests/test_score.py::test_ps2_worked_example_p10001_is_poor`.

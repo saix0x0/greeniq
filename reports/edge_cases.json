@@ -1,7 +1,7 @@
 {
   "homes": 3000,
   "categories": {
-    "has an infeasible measure": 1199,
+    "has an infeasible measure": 1036,
     "Decision Lab runs": 192,
     "interacting package (2+ measures)": 2608,
     "gas-heated home with a feasible heat pump": 1815,
@@ -22,9 +22,10 @@
     "Decision Lab only offers feasible packages": 192,
     "package = standalone sum + reported interaction": 2608,
     "heat pump raises electricity and cuts gas": 1815,
-    "no improvement % without a metered, non-zero baseline": 214
+    "no improvement % without a non-zero baseline": 25,
+    "a potential on a model baseline is labelled estimated": 189
   },
   "violations": {},
   "examples": {},
-  "seconds": 91.5
+  "seconds": 55.0
 }

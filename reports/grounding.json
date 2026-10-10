@@ -1,39 +1,63 @@
 {
-  "homes": 40,
+  "homes": 200,
+  "split": "test",
   "clean_templates": {
-    "texts": 76,
+    "texts": 387,
     "blocked": 0,
-    "claims": 754,
-    "grounded": 754
+    "claims": 3984,
+    "grounded": 3984
   },
   "corruptions": {
     "invented_number": {
-      "tried": 36,
-      "caught": 36
+      "tried": 187,
+      "caught": 187
     },
     "flipped_direction": {
-      "tried": 35,
-      "caught": 35
+      "tried": 186,
+      "caught": 186
     },
     "causal_value_claim": {
-      "tried": 36,
-      "caught": 36
+      "tried": 187,
+      "caught": 187
     },
     "off_scenario_measure": {
-      "tried": 27,
-      "caught": 27
+      "tried": 135,
+      "caught": 135
     }
   },
   "llm": {
     "run": true,
-    "homes": 40,
-    "explanations": 76,
-    "passed": 20,
-    "claims": 935,
-    "grounded": 883,
-    "unsupported": 52,
+    "homes": 30,
+    "explanations": 58,
+    "passed": 50,
+    "claims": 586,
+    "grounded": 586,
+    "unsupported": 0,
     "status": "qwen2.5-1.5b-instruct at http://127.0.0.1:8081/v1 behind the grounding gate",
-    "failures": []
+    "failures": [],
+    "violations": {
+      "wrong_direction": 4,
+      "model_wrote_a_number": 3,
+      "scenario_mismatch": 2
+    }
   },
-  "seconds": 827.5
+  "llm_by_style": {
+    "hybrid": {
+      "run": true,
+      "homes": 30,
+      "explanations": 58,
+      "passed": 50,
+      "claims": 586,
+      "grounded": 586,
+      "unsupported": 0,
+      "status": "qwen2.5-1.5b-instruct at http://127.0.0.1:8081/v1 behind the grounding gate",
+      "failures": [],
+      "violations": {
+        "wrong_direction": 4,
+        "model_wrote_a_number": 3,
+        "scenario_mismatch": 2
+      }
+    }
+  },
+  "seconds": 207.8
 }
