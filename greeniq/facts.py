@@ -128,6 +128,40 @@ class Confidence(BaseModel):
     reasons: list[str]
 
 
+class NBAReason(BaseModel):
+    code: str
+    text: str
+    fact_ref: str  # path into this ComputedFacts, e.g. "plan[0].standalone.carbon.total_kg"
+
+
+class NBAAction(BaseModel):
+    kind: Literal["retrofit", "survey", "answer_question", "no_action"]
+    ref: str | None = None  # measure id, question field or conflict code
+    label: str
+
+
+class NBAAlternative(BaseModel):
+    action: NBAAction
+    benefit: float | None = None
+    why_not_first: str
+
+
+class NextBestAction(BaseModel):
+    """One action, selected from facts already computed (no new energy numbers are made here)."""
+
+    action: NBAAction
+    disposition: Literal["recommend", "refer_for_survey", "no_action"]
+    headline: str
+    reasons: list[NBAReason] = Field(min_length=3, max_length=3)
+    objective: str
+    benefit: float | None = None  # in the objective's unit
+    benefit_unit: str | None = None
+    confidence: Literal["high", "medium", "low"]
+    alternatives: list[NBAAlternative] = Field(default_factory=list)
+    blocked_by: str | None = None
+    method_version: str
+
+
 class ComputedFacts(BaseModel):
     facts_id: str
     property_id: str
@@ -150,5 +184,6 @@ class ComputedFacts(BaseModel):
     value: ValueResult | None
     scenario: ScenarioInfo | None
     insights: list[str] = Field(default_factory=list)
+    next_best_action: NextBestAction | None = None
     providers_used: dict[str, str]
     warnings: list[str]

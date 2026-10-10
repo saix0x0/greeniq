@@ -62,6 +62,13 @@ def cmd_analyse(args) -> int:
         print(f"  package: net {pk.impact.net_saving_kwh:+,.0f} kWh/yr, carbon {pk.impact.carbon.total_tonnes:+.2f} t/yr, "
               f"potential {ip.pct if ip.status == 'available' else 'unavailable'}%, score after {pk.score_after} "
               f"({pk.band_after}), EPC {pk.epc_band_before}→{pk.epc_band_after}")
+    if facts.next_best_action:
+        n = facts.next_best_action
+        print(f"  NEXT BEST ACTION [{n.disposition}, confidence {n.confidence}]: {n.headline}")
+        for r in n.reasons:
+            print(f"    - {r.text}  ← {r.fact_ref}")
+        if n.blocked_by:
+            print(f"    blocked by: {n.blocked_by}")
     if facts.value and facts.value.status == "available":
         v = facts.value
         print(f"  value: £{v.current_value:,}; indicative uplift {v.uplift_pct_range[0]:+.1f}% to {v.uplift_pct_range[1]:+.1f}%")

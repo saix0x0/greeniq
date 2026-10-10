@@ -222,3 +222,60 @@ flowchart LR
 - **Tests:** 74 passed (all seven fixtures' documented behaviours plus PS2's scenario tests).
 - **Docs:** [`docs/METHODOLOGY.md`](METHODOLOGY.md), ADR-003 (simulated world), ADR-004 (energy method).
 - **Next:** Phase 4, the ML models (energy baseline, savings calibration, value), portfolio ranking, and the evaluation harness with held-out predictions.
+
+---
+
+## 8. Product build (execution brief, phases P1–P5)
+
+From here the build follows the locked execution brief: **build the product layer on the
+existing engine, vertically.** Product phases P1–P5 map onto the journal's phases 5–8
+(API → dashboard → Decision Lab → grounded AI → hardening). The engine is not rewritten.
+
+| Product phase | Delivers | Status |
+|---|---|---|
+| **P1** Stabilise | verify engine, list UI gaps, merge `main` in | ✅ |
+| **P2** Next Best Action | thin selector over ComputedFacts, 3 traced reasons | ✅ |
+| **P3** API + core dashboard | FastAPI + one-port no-build web app; portfolio + property views | 🔄 next |
+| **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | ⬜ |
+| **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | ⬜ |
+
+### 2026-10-10 · P1: stabilise — verification note
+- **Tests:** `uv run pytest` → **88 passed** on `beautiful` before any change.
+- **End to end:** `uv run greeniq analyse P00007` → score 48 (Poor), per-fuel plan (heat pump elec −2,290 / gas +7,820 kWh),
+  package net +10,350 kWh/yr, +1.91 t CO₂e/yr, EPC D→C, value range. Works.
+- **Machine note (macOS):** if `greeniq` says `No module named 'greeniq'`, the venv's `.pth` files got the macOS
+  `hidden` flag (Python ≥3.11.14 skips hidden `.pth` files). Fix: `chflags nohidden .venv/lib/python3.11/site-packages/*.pth`.
+- **What ComputedFacts already carries for the UI:** score + 7 weighted contributions + points available + issues,
+  per-fuel baseline (with heating/baseload split and basis), plan with standalone **and** in-package impacts, excluded
+  with reasons, conflicts, questions, confidence, package (interaction, score/EPC after, cost), value range, scenario.
+- **UI gaps found (and where they get filled):**
+  1. Next Best Action — missing → **P2** (done).
+  2. Every feasible package (for Choose Your Plan / Pareto) — missing → P4 `engines/packages.py`, via `analyse_home` per subset.
+  3. End-use breakdown (heating / hot water / appliances / PV) for the Sankey — computed inside `EnergyState`, not
+     exposed → P4 adds it to the package result.
+  4. Pairwise interactions per output (score, energy, carbon) — derivable from paired scenario runs → P4.
+  5. Sensitivity (which assumed inputs flip the decision) — missing → P4, by re-running `analyse_home` on flipped inputs.
+  6. Portfolio summary — `engines/ranking.py` exists; API aggregates it → P3.
+- **Merge:** `main` merged into `beautiful` (teammates' `greenpath_home/`, `dataset.md`, docs 11–14, ADR-002 base-product
+  decisions all kept). Only conflict: `.gitignore`, resolved as the union. 88 tests still green.
+- **Noted, not changed:** `main`'s README mentions the DESNZ NEED sample as the data source; the engine on this branch
+  uses the documented synthetic world (ADR-003). To reconcile in the delivery docs.
+
+### 2026-10-10 · P2: Next Best Action
+- `greeniq/engines/nba.py`: a **selector** over the finished `ComputedFacts`; it computes no energy, carbon or cost number.
+  Exposed as `ComputedFacts.next_best_action` and printed by `greeniq analyse`.
+- **Rule:** (a) blocked → get the missing fact first: high-severity conflict → survey; heating unknown → ask; no baseline
+  at all → ask for readings; nothing feasible but survey-gated measures → survey. (b) otherwise rank feasible measures
+  whose prerequisites are not pending (never a heat pump while its fabric measures are outstanding) by objective ×
+  suitability (High 1.0 / Medium 0.7 / Low 0.4). (c) nothing above 25 kg CO₂e/yr, or zero metered use → no action.
+- **Objectives:** `value_for_money` (default; kg CO₂e/yr per £1k of mid cost, **£1k cost floor** so a £250 thermostat
+  can't win on a tiny denominator — without the floor it was picked for every home), `carbon`, `energy`.
+  Passed as `constraints["objective"]`.
+- **Exactly 3 reasons**, each with a `fact_ref` path into the facts (tested to resolve), e.g. `plan[1].standalone`,
+  `score.issues[3]`, `plan[4].depends_on` ("do it before the heat pump").
+- **Fixtures:** poor semi → loft; heat-pump candidate → cavity wall first; mid flat → glazing; conflict → survey;
+  void → no action; large efficient → no action.
+- **Sweep:** 3,000 homes, 0 errors, 1.8 ms/home; actions spread across loft 637, controls 684, cavity 568, heat pump 409
+  (fabric already done), glazing 247, solid wall 137, solar 80, no action 159, ask 48, survey 31.
+- **Tests:** 116 passed (28 new in `tests/test_nba.py`).
+- **Next:** P3, the API and the core dashboard (vertical slice).

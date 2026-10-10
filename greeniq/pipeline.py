@@ -24,6 +24,7 @@ from .engines import physics, rating
 from .engines.carbon import CARBON_VERSION, carbon_reduction
 from .engines.catalogue import catalogue, emission_factors, measure, stage_label
 from .engines.energy import ENERGY_VERSION, EnergyState, apply_measure, boiler_efficiency, decompose, physics_estimate
+from .engines.nba import DEFAULT_OBJECTIVE, NBA_VERSION, select_next_best_action
 from .engines.retrofit import RETROFIT_VERSION, Excluded, plan_candidates
 from .facts import (
     BaselineEnergy, ComputedFacts, Confidence, FuelFigures, Impact, ImprovementPotential, PackageResult,
@@ -299,18 +300,21 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
         "defaults": DEFAULTS_VERSION, "annualisation": ANNUALISE_VERSION, "physics": physics.PHYSICS_VERSION,
         "energy": ENERGY_VERSION, "retrofit_rules": RETROFIT_VERSION, "rating": rating.RATING_VERSION,
         "carbon": CARBON_VERSION, "quality": QUALITY_VERSION, "catalogue": catalogue()["version"],
-        "emission_factors": emission_factors()["version"],
+        "emission_factors": emission_factors()["version"], "nba": NBA_VERSION,
     }
     fid = hashlib.sha256(json.dumps({"p": p.model_dump(mode="json"), "s": scenario.model_dump() if scenario else None,
                                      "c": constraints, "v": versions, "cal": ctx.calibration},
                                     sort_keys=True, default=str).encode()).hexdigest()[:16]
-    return ComputedFacts(
+    facts = ComputedFacts(
         facts_id=fid, property_id=p.property_id, as_of=ctx.as_of, versions=versions,
         property_summary=_summary(p, inp), inputs=inp, baseline=baseline, baseline_basis=baseline_basis,
         intensity_kwh_m2=intensity, sap=sap, epc_band=sap_to_band(sap.value) if sap.known else None, score=score,
         conflicts=conflicts, questions=questions, confidence=confidence, plan=plan, excluded=excluded,
         package=package, value=value, scenario=scenario_info, providers_used=providers, warnings=warnings,
     )
+    # 13. next best action: a selector over the finished facts (computes no new numbers)
+    nba = select_next_best_action(facts, constraints.get("objective", DEFAULT_OBJECTIVE))
+    return facts.model_copy(update={"next_best_action": nba})
 
 
 def _estimate_baseline(p: Property, inp: dict, heating: str | None, ctx: EngineContext) -> dict | None:
