@@ -230,8 +230,17 @@ function afterRender(root) {
   $$("[data-goto]", root).forEach((el) => el.onclick = () => { location.hash = "#/" + el.dataset.goto; });
   // pending AI explanation cards (now that they're in the DOM)
   $$("[data-ai-pending]", root).forEach((el) => { el.removeAttribute("data-ai-pending"); renderAi(el.id, el.dataset.aiPid, el.dataset.aiScope); });
-  // sample homes on the no-home state
+  // deferred container fills (run on every render incl. the initial one, each once)
+  const fill = (sel, fn) => { const el = $(sel); if (el && !el.dataset.filled) { el.dataset.filled = "1"; fn(); } };
   if ($("#sample-homes", root)) fillSampleHomes();
+  fill("#rank-body", fillRanking);
+  fill("#group-table", () => fillGroups("region"));
+  fill("#custom-result", recomputeCustom);
+  fill("#pareto", drawPareto);
+  fill("#heat", drawHeat);
+  fill("#torn", drawTorn);
+  if ($("#set-obj")) $("#set-obj").value = S.objective;
+  if ($("#set-theme")) $("#set-theme").value = S.theme;
 }
 
 async function fillSampleHomes() {
@@ -305,6 +314,100 @@ function comparisonSection(f, st, pf) {
         <div class="card-sub">Real peer medians from DESNZ NEED <span class="tag real">real data</span> — ${esc(f.peer?.peer_group || "")}. Guidance, not judgement.</div>
         ${peerCompare(f.peer?.fuels)}</div>
     </div></div>`;
+}
+
+// ──────────────────────────────────────────────────────────── Decision-Lab charts
+// All from the engine's /lab output (packages, interactions, sensitivity) and facts.flows.
+// No business logic recomputed; non-dominance is a geometric property of given points.
+let LAB = null;
+const LABKEY = { pareto: "carbon_kg", heat: "score_points", torn: "carbon_kg" };
+const PARETO_AXES = {
+  carbon_kg: { label: "Carbon saved (kg CO₂e/yr)", fmt: (v) => fmt(v) + " kg", get: (p) => p.carbon_kg },
+  net_saving_kwh: { label: "Net energy saved (kWh/yr)", fmt: (v) => kwh(v), get: (p) => p.net_saving_kwh },
+  score_after: { label: "Green Home Score after", fmt: (v) => fmt(v), get: (p) => p.score_after },
+};
+function measureShort(m) { return (m || "").replace(/_/g, " ").replace("insulation", "insul.").replace("air source heat pump", "heat pump").replace("solar pv", "solar").replace("smart controls", "controls").replace("glazing upgrade", "glazing"); }
+
+function paretoChart(pkgs, yKey) {
+  const ax = PARETO_AXES[yKey]; const pts = pkgs.filter((p) => ax.get(p) != null && p.cost_mid != null);
+  if (pts.length < 2) return `<p class="muted small">Not enough feasible packages to plot a frontier.</p>`;
+  const xs = pts.map((p) => p.cost_mid), ys = pts.map(ax.get);
+  const xmin = 0, xmax = Math.max(...xs) * 1.08, ymin = Math.min(0, ...ys), ymax = Math.max(...ys) * 1.08 || 1;
+  const W = 600, H = 300, m = { l: 58, r: 16, t: 14, b: 42 };
+  const px = (x) => m.l + (x - xmin) / (xmax - xmin) * (W - m.l - m.r);
+  const py = (y) => H - m.b - (y - ymin) / (ymax - ymin) * (H - m.t - m.b);
+  // non-dominated: no other package has lower-or-equal cost AND higher-or-equal benefit
+  const dom = pts.map((p, i) => pts.some((q, j) => j !== i && q.cost_mid <= p.cost_mid && ax.get(q) >= ax.get(p) && (q.cost_mid < p.cost_mid || ax.get(q) > ax.get(p))));
+  const front = pts.map((p, i) => [p, i]).filter(([, i]) => !dom[i]).sort((a, b) => a[0].cost_mid - b[0].cost_mid);
+  const gridY = [0, .25, .5, .75, 1].map((t) => ymin + t * (ymax - ymin));
+  return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Cost versus ${esc(ax.label)} for every feasible package">
+    ${gridY.map((gy) => `<line x1="${m.l}" y1="${py(gy)}" x2="${W - m.r}" y2="${py(gy)}" stroke="var(--line)" stroke-width="1"/><text x="${m.l - 6}" y="${py(gy) + 3}" class="cmp-axis" text-anchor="end">${ax.fmt(gy)}</text>`).join("")}
+    <polyline points="${front.map(([p]) => `${px(p.cost_mid)},${py(ax.get(p))}`).join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3" opacity=".7"/>
+    ${pts.map((p, i) => `<circle cx="${px(p.cost_mid)}" cy="${py(ax.get(p))}" r="${dom[i] ? 4 : 6}" fill="${dom[i] ? "var(--line-2)" : "var(--accent)"}" stroke="var(--card)" stroke-width="1.5" class="pareto-pt" data-plan="${p.measures.join(",")}" style="cursor:pointer"><title>${esc(p.measures.map(measureShort).join(" + ") || "—")}\nCost ≈ ${gbp(p.cost_mid)} · ${ax.label}: ${ax.fmt(ax.get(p))}${dom[i] ? "\n(dominated)" : "\n★ best value on this trade-off"}</title></circle>`).join("")}
+    <text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 6}" class="cmp-axis" text-anchor="middle">Indicative upfront cost (£, mid)</text>
+  </svg>
+  <div class="cmp-legend"><span><i style="background:var(--accent)"></i>Best-value frontier (non-dominated)</span><span><i style="background:var(--line-2)"></i>Dominated package</span><span class="muted">Click a point to load it below</span></div>`;
+}
+
+function interactionHeatmap(inter, key) {
+  if (!inter?.length) return `<p class="muted small">No measure pairs to compare for this home.</p>`;
+  const ms = [...new Set(inter.flatMap((x) => [x.a, x.b]))];
+  const val = {}; inter.forEach((x) => { val[x.a + "|" + x.b] = x[key]; val[x.b + "|" + x.a] = x[key]; });
+  const maxAbs = Math.max(...inter.map((x) => Math.abs(x[key])), 1);
+  const n = ms.length, cell = 52, lab = 92, W = lab + n * cell + 10, H = lab + n * cell + 10;
+  const color = (v) => v == null ? "var(--card-2)" : v > 0 ? `color-mix(in srgb, var(--good) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : v < 0 ? `color-mix(in srgb, var(--gas) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : "var(--card-2)";
+  const unit = key === "score_points" ? " pts" : key === "carbon_kg" ? " kg" : " kWh";
+  return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Retrofit interaction heatmap">
+    ${ms.map((mm, j) => `<text x="${lab + j * cell + cell / 2}" y="${lab - 6}" class="cmp-axis" transform="rotate(-35 ${lab + j * cell + cell / 2} ${lab - 6})" text-anchor="start">${esc(measureShort(mm))}</text>`).join("")}
+    ${ms.map((mr, i) => `<text x="${lab - 6}" y="${lab + i * cell + cell / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(measureShort(mr))}</text>
+      ${ms.map((mc, j) => { if (i === j) return `<rect x="${lab + j * cell}" y="${lab + i * cell}" width="${cell - 2}" height="${cell - 2}" rx="4" fill="var(--card-2)"/>`;
+        const v = val[mr + "|" + mc]; return `<rect x="${lab + j * cell}" y="${lab + i * cell}" width="${cell - 2}" height="${cell - 2}" rx="4" fill="${color(v)}"><title>${esc(measureShort(mr))} + ${esc(measureShort(mc))}: ${v == null ? "n/a" : (v > 0 ? "+" : "") + fmt(v, key === "carbon_kg" ? 0 : 1) + unit}</title></rect>
+        ${v != null && Math.abs(v) / maxAbs > 0.08 ? `<text x="${lab + j * cell + cell / 2 - 1}" y="${lab + i * cell + cell / 2 + 3}" class="cmp-cnt" style="fill:var(--ink)">${(v > 0 ? "+" : "") + fmt(v, 0)}</text>` : ""}`; }).join("")}`).join("")}
+  </svg>
+  <div class="cmp-legend"><span><i style="background:var(--good)"></i>Synergy (do together)</span><span><i style="background:var(--gas)"></i>Overlap (diminishing)</span><span><i style="background:var(--card-2)"></i>≈ no interaction</span></div>`;
+}
+
+function sensitivityTornado(sens, key) {
+  const rows = (sens || []).map((s) => {
+    const vals = s.variants.map((v) => v[key]).filter((v) => v != null);
+    return vals.length ? { label: s.label, basis: s.basis, fragile: s.fragile, lo: Math.min(...vals), hi: Math.max(...vals), current: s.current } : null;
+  }).filter(Boolean).sort((a, b) => (b.hi - b.lo) - (a.hi - a.lo));
+  if (!rows.length) return `<p class="muted small">No sensitivity variants available for this home.</p>`;
+  const gmin = Math.min(...rows.map((r) => r.lo)), gmax = Math.max(...rows.map((r) => r.hi)), span = gmax - gmin || 1;
+  const W = 560, rowH = 34, m = { l: 150, r: 16, t: 8, b: 26 }, H = m.t + rows.length * rowH + m.b;
+  const px = (v) => m.l + (v - gmin) / span * (W - m.l - m.r);
+  const unit = key === "carbon_kg" ? " kg CO₂e" : " score pts";
+  return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Sensitivity tornado">
+    ${rows.map((r, i) => { const y = m.t + i * rowH + 6; return `
+      <text x="${m.l - 8}" y="${y + 13}" class="cmp-axis" text-anchor="end">${esc(r.label)}${r.fragile ? ' <tspan fill="var(--warn)">⚠</tspan>' : ""}</text>
+      <rect x="${px(r.lo)}" y="${y}" width="${Math.max(px(r.hi) - px(r.lo), 2)}" height="20" rx="4" fill="${r.fragile ? "var(--warn)" : "var(--accent)"}" opacity=".85"><title>${esc(r.label)} (currently ${esc(r.current)}, ${esc(r.basis)}): output ranges ${fmt(r.lo, 0)}–${fmt(r.hi, 0)}${unit}</title></rect>
+      <text x="${px(r.lo) - 4}" y="${y + 14}" class="cmp-axis" text-anchor="end">${fmt(r.lo, 0)}</text>
+      <text x="${px(r.hi) + 4}" y="${y + 14}" class="cmp-axis" text-anchor="start">${fmt(r.hi, 0)}</text>`; }).join("")}
+    <text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 6}" class="cmp-axis" text-anchor="middle">Range of ${key === "carbon_kg" ? "package carbon saving" : "score"} as each assumed input varies</text>
+  </svg>
+  <div class="cmp-legend"><span><i style="background:var(--warn)"></i>Fragile — a survey would resolve it</span><span class="muted">Wider bar = the result depends more on this input</span></div>`;
+}
+
+function sankey(flows, caption) {
+  if (!flows?.length) return `<p class="muted small">No energy-flow breakdown for this home.</p>`;
+  const srcs = [...new Set(flows.map((f) => f.source))], tgts = [...new Set(flows.map((f) => f.target))];
+  const total = flows.reduce((a, f) => a + f.kwh, 0) || 1;
+  const W = 560, H = Math.max(160, Math.max(srcs.length, tgts.length) * 46), m = { t: 10, b: 10 }, nodeW = 13, gap = 6;
+  const plotH = H - m.t - m.b;
+  const srcTot = {}, tgtTot = {}; flows.forEach((f) => { srcTot[f.source] = (srcTot[f.source] || 0) + f.kwh; tgtTot[f.target] = (tgtTot[f.target] || 0) + f.kwh; });
+  const scale = (plotH - gap * (Math.max(srcs.length, tgts.length) - 1)) / total;
+  const fuelCol = (s) => /elec|grid/i.test(s) ? "var(--elec)" : /gas/i.test(s) ? "var(--gas)" : /solar/i.test(s) ? "var(--solar)" : "var(--accent)";
+  let sy = m.t; const sPos = {}; srcs.forEach((s) => { const h = srcTot[s] * scale; sPos[s] = { y: sy, h, off: 0 }; sy += h + gap; });
+  let ty = m.t; const tPos = {}; tgts.forEach((t) => { const h = tgtTot[t] * scale; tPos[t] = { y: ty, h, off: 0 }; ty += h + gap; });
+  const links = flows.map((f) => {
+    const s = sPos[f.source], t = tPos[f.target], h = f.kwh * scale;
+    const y0 = s.y + s.off + h / 2, y1 = t.y + t.off + h / 2; s.off += h; t.off += h;
+    const x0 = nodeW, x1 = W - nodeW, cx = (x0 + x1) / 2;
+    return `<path d="M${x0},${y0} C${cx},${y0} ${cx},${y1} ${x1},${y1}" stroke="${fuelCol(f.source)}" stroke-width="${Math.max(h, 1)}" fill="none" opacity=".32"><title>${esc(f.source)} → ${esc(f.target)}: ${kwh(f.kwh)}</title></path>`;
+  }).join("");
+  const nodes = srcs.map((s) => `<rect x="0" y="${sPos[s].y}" width="${nodeW}" height="${Math.max(sPos[s].h, 1)}" rx="2" fill="${fuelCol(s)}"/><text x="${nodeW + 5}" y="${sPos[s].y + sPos[s].h / 2 + 3}" class="cmp-axis" text-anchor="start">${esc(s)}</text>`).join("") +
+    tgts.map((t) => `<rect x="${W - nodeW}" y="${tPos[t].y}" width="${nodeW}" height="${Math.max(tPos[t].h, 1)}" rx="2" fill="var(--line-2)"/><text x="${W - nodeW - 5}" y="${tPos[t].y + tPos[t].h / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(t)}</text>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="${esc(caption)}">${links}${nodes}</svg>`;
 }
 
 // ──────────────────────────────────────────────────────────── PAGES
@@ -586,6 +689,7 @@ async function pageImprovements() {
 const PLAN = { picked: new Set(), budget: 15000 };
 async function pagePlans() {
   const lab = await api(`/api/properties/${encodeURIComponent(S.pid)}/lab?budget=${PLAN.budget}&objective=${S.objective}`);
+  LAB = lab;
   const feasible = [...new Set(lab.packages.flatMap((p) => p.measures))];
   const measureName = {};
   (await loadFacts(S.pid)).facts.plan.forEach((p) => (measureName[p.measure_id] = p.name));
@@ -608,10 +712,24 @@ async function pagePlans() {
   </div></div>
 
   <div class="section"><div class="card">
-    <h3>Cost vs carbon</h3><div class="card-sub">Every feasible package. Down-and-right is better value.</div>
-    <div id="frontier">${frontierTable(lab.packages, measureName)}</div>
+    <h3>Best-value frontier <span class="muted" style="font-weight:400">· Pareto</span></h3>
+    <div class="card-sub">Every feasible package the engine re-ran: upfront cost vs what you get. Points on the dashed line give the most benefit for the cost; click one to load it.</div>
+    <div class="btn-row" id="pareto-tabs">${Object.entries(PARETO_AXES).map(([k, a]) => `<button class="btn sm ${k === LABKEY.pareto ? "primary" : ""}" data-pareto="${k}">${esc(a.label.split(" (")[0])}</button>`).join("")}</div>
+    <div id="pareto" style="margin-top:12px"></div>
+  </div></div>
+
+  <div class="section"><div class="grid cols-2">
+    <div class="card"><h3>How measures interact</h3><div class="card-sub">Combined effect minus the sum of the parts, for each pair the engine evaluated. This is why savings are never simply added.</div>
+      <div class="btn-row" id="heat-tabs">${[["score_points", "Score"], ["net_kwh", "Energy"], ["carbon_kg", "Carbon"]].map(([k, l]) => `<button class="btn sm ${k === LABKEY.heat ? "primary" : ""}" data-heat="${k}">${l}</button>`).join("")}</div>
+      <div id="heat" style="margin-top:12px"></div></div>
+    <div class="card"><h3>What the result depends on</h3><div class="card-sub">How far the outcome moves as each assumed input varies. Wider bar = more sensitive; ⚠ = a survey would resolve it.</div>
+      <div class="btn-row" id="torn-tabs">${[["carbon_kg", "Carbon"], ["score", "Score"]].map(([k, l]) => `<button class="btn sm ${k === LABKEY.torn ? "primary" : ""}" data-torn="${k}">${l}</button>`).join("")}</div>
+      <div id="torn" style="margin-top:12px"></div></div>
   </div></div>`;
 }
+function drawPareto() { const el = $("#pareto"); if (el && LAB) { el.innerHTML = paretoChart(LAB.packages, LABKEY.pareto); afterRender(el); } }
+function drawHeat() { const el = $("#heat"); if (el && LAB) el.innerHTML = interactionHeatmap(LAB.interactions, LABKEY.heat); }
+function drawTorn() { const el = $("#torn"); if (el && LAB) el.innerHTML = sensitivityTornado(LAB.sensitivity, LABKEY.torn); }
 function planCard(pl, pkg, names) {
   if (!pkg) return `<div class="plan-card"><h4>${esc(pl.title)}</h4><p class="muted small">${esc(pl.definition)}</p><p class="muted">No feasible package.</p></div>`;
   return `<div class="plan-card"><h4>${esc(pl.title)}</h4><div class="small muted" style="margin-bottom:8px">${esc(pl.definition)}</div>
@@ -622,12 +740,6 @@ function planCard(pl, pkg, names) {
     <div class="plan-metric"><span>Net energy</span><b class="num delta good">−${kwh(pkg.net_saving_kwh)}</b></div>
     <div class="btn-row" style="margin-top:10px"><button class="btn sm" data-plan="${pkg.measures.join(",")}">Load this plan</button></div>
   </div>`;
-}
-function frontierTable(pkgs, names) {
-  const sorted = [...pkgs].sort((a, b) => a.cost_mid - b.cost_mid);
-  return `<table class="data"><thead><tr><th>Package</th><th class="num">Cost (mid)</th><th class="num">Net energy saved</th><th>Prereqs</th></tr></thead><tbody>
-    ${sorted.slice(0, 12).map((p) => `<tr><td>${p.measures.map((m) => esc(names[m] || m.replace(/_/g, " "))).join(", ") || "—"}</td><td class="num">${gbpK(p.cost_mid)}</td><td class="num">−${kwh(p.net_saving_kwh)}</td><td>${p.respects_prerequisites ? `<span class="tag measured">ok</span>` : `<span class="tag assumed">missing</span>`}</td></tr>`).join("")}
-  </tbody></table>`;
 }
 async function recomputeCustom() {
   const box = $("#custom-result"); if (!box) return;
@@ -669,6 +781,14 @@ async function pageEnergy() {
         : `<p class="muted">No carbon delta to show.</p>`}
     </div>
   </div>
+  <div class="section"><div class="card"><h3>Where your energy goes</h3>
+    <div class="card-sub">Purchased fuel → end use, in kWh/yr. Same accounting both sides; a heat pump shifts heating from gas to electricity, and the line widths are to scale.</div>
+    <div class="grid cols-2" style="gap:22px">
+      <div><div class="section-eyebrow" style="margin-bottom:2px">Now</div>${sankey(f.baseline_flows, "Energy flows, baseline")}</div>
+      ${f.package?.flows_after?.length ? `<div><div class="section-eyebrow" style="margin-bottom:2px">After the recommended plan</div>${sankey(f.package.flows_after, "Energy flows after retrofit")}</div>` : ""}
+    </div>
+  </div></div>
+
   <div class="section">${aiCard(S.pid, "package", "What these savings mean")}</div>`;
 }
 
@@ -895,6 +1015,9 @@ async function boot() {
     const askEl = e.target.closest("[data-ask]"); if (askEl) { e.preventDefault(); askAdvisor(askEl.dataset.ask); return; }
     const planEl = e.target.closest("[data-plan]"); if (planEl) { PLAN.picked = new Set(planEl.dataset.plan.split(",").filter(Boolean)); route().then(() => recomputeCustom()); return; }
     const grpEl = e.target.closest("[data-group]"); if (grpEl) { $$("#group-tabs .btn").forEach((b) => b.classList.toggle("primary", b === grpEl)); fillGroups(grpEl.dataset.group); return; }
+    const pa = e.target.closest("[data-pareto]"); if (pa) { LABKEY.pareto = pa.dataset.pareto; $$("#pareto-tabs .btn").forEach((b) => b.classList.toggle("primary", b === pa)); drawPareto(); return; }
+    const he = e.target.closest("[data-heat]"); if (he) { LABKEY.heat = he.dataset.heat; $$("#heat-tabs .btn").forEach((b) => b.classList.toggle("primary", b === he)); drawHeat(); return; }
+    const to = e.target.closest("[data-torn]"); if (to) { LABKEY.torn = to.dataset.torn; $$("#torn-tabs .btn").forEach((b) => b.classList.toggle("primary", b === to)); drawTorn(); return; }
     if (!e.target.closest("#prop-switch")) closePropPop();
   });
   $("#prop-btn").onclick = (e) => { e.stopPropagation(); $("#prop-pop").hidden ? openPropPop() : closePropPop(); };
@@ -928,15 +1051,6 @@ async function boot() {
 
   window.addEventListener("hashchange", route);
   await route();
-
-  // post-render fills for lender page
-  const obs = new MutationObserver(() => {
-    if ($("#rank-body") && !$("#rank-body").dataset.filled) { $("#rank-body").dataset.filled = "1"; fillRanking(); }
-    if ($("#group-table") && !$("#group-table").dataset.filled) { $("#group-table").dataset.filled = "1"; fillGroups("region"); }
-    if ($("#custom-result") && !$("#custom-result").dataset.filled) { $("#custom-result").dataset.filled = "1"; recomputeCustom(); }
-    if ($("#set-obj")) { $("#set-obj").value = S.objective; } if ($("#set-theme")) $("#set-theme").value = S.theme;
-  });
-  obs.observe($("#main"), { childList: true, subtree: true });
 }
 
 boot();
