@@ -316,6 +316,7 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
     facts = ComputedFacts(
         facts_id=fid, property_id=p.property_id, as_of=ctx.as_of, versions=versions,
         property_summary=_summary(p, inp), inputs=inp, baseline=baseline, baseline_basis=baseline_basis,
+        baseline_flows=base_state.flows() if base_state is not None else [],
         intensity_kwh_m2=intensity, baseline_emissions_kg=emissions, sap=sap, epc_band=sap_to_band(sap.value) if sap.known else None, score=score,
         conflicts=conflicts, questions=questions, confidence=confidence, plan=plan, excluded=excluded,
         package=package, value=value, scenario=scenario_info, providers_used=providers, warnings=warnings,
@@ -442,6 +443,7 @@ def _package(p, inp, ctx, scenario, ordered, excluded, base_state, base_p, stand
         epc_band_after=sap_to_band(sap_after) if sap_after is not None else None,
         cost_low=sum(c[0] for c in costs), cost_high=sum(c[1] for c in costs),
         components_after={c.key: c.contribution for c in score_after.components},
+        flows_after=st.flows(),
         receipt=Receipt(output="package", value=impact.net_saving_kwh, unit="kWh/yr net purchased saving",
                         inputs={"measures": chosen, "order": order},
                         method="Measures applied in sequence to one evolving state (not a sum of standalone savings)",

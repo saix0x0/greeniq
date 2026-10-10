@@ -25,7 +25,7 @@ from ..contract import Resolved
 from . import physics
 from .catalogue import measure
 
-ENERGY_VERSION = "energy-sequential/1.0"
+ENERGY_VERSION = "energy-sequential/1.1"  # 1.1: realised-HLC tracking (no super-additive fabric pairs)
 HEAT_UTILISATION = 0.85  # physics-only estimates: fraction of degree-day heat actually delivered
 COOKING_GAS_MAX = 250.0
 
@@ -71,6 +71,7 @@ class EnergyState:
     pv_shading: str = "low"
     controls: str = "programmer_thermostat"
     installed: list[str] = field(default_factory=list)
+    hlc_eff: float | None = None  # realised heat-loss coefficient after fabric measures (None = nominal)
 
     # --- purchased energy -------------------------------------------------------------
     @property
@@ -115,6 +116,35 @@ class EnergyState:
         gas = self.cooking_gas + ((self.q_space / self.eff + self.q_hw / self.eff) if self.gas_heated else 0.0)
         return {"electricity": max(demand - sc, 0.0), "gas": max(gas, 0.0), "electricity_demand": demand,
                 "pv_generation": gen, "pv_self_consumed": sc}
+
+    def flows(self) -> list[dict]:
+        """Where purchased energy (plus self-consumed solar) goes, per end use, kWh/yr.
+
+        Consistent accounting for the Sankey: grid flows sum to purchased electricity, gas
+        flows to purchased gas; solar covers the same share of every electric end use.
+        Exported solar is not a flow into the home and is not shown.
+        """
+        p = self.purchased()
+        demand = p["electricity_demand"]
+        solar_share = p["pv_self_consumed"] / demand if demand > 0 else 0.0
+        elec_uses = {
+            "Space heating": 0.0 if self.gas_heated else self.q_space / self.eff,
+            "Hot water": 0.0 if self.gas_heated else self.q_hw / self.hw_efficiency(),
+            "Appliances & lighting": self.other_elec,
+        }
+        gas_uses = {
+            "Space heating": self.q_space / self.eff if self.gas_heated else 0.0,
+            "Hot water": self.q_hw / self.eff if self.gas_heated else 0.0,
+            "Cooking (gas)": self.cooking_gas,
+        }
+        out = []
+        for use, kwh in elec_uses.items():
+            if kwh > 0:
+                out.append({"source": "Grid electricity", "target": use, "kwh": kwh * (1 - solar_share)})
+                if solar_share > 0:
+                    out.append({"source": "Solar (self-used)", "target": use, "kwh": kwh * solar_share})
+        out += [{"source": "Gas", "target": use, "kwh": kwh} for use, kwh in gas_uses.items() if kwh > 0]
+        return [{**f, "kwh": float(round(f["kwh"] / 10.0) * 10)} for f in out if f["kwh"] >= 5]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -207,12 +237,17 @@ def decompose(
 # ---------------------------------------------------------------------------------------------
 
 def _fabric(st: EnergyState, change: dict, realisation: float) -> EnergyState:
+    """Only ``realisation`` of the nominal heat-loss reduction is achieved. We track the realised
+    (effective) HLC so that a second fabric measure is judged against what the first one really
+    delivered; otherwise sequential fabric savings become super-additive whenever realisation < 1."""
     new = copy.deepcopy(st)
     before = physics.heat_loss_coefficient(st.phys)
     new.phys.update(change)
     after = physics.heat_loss_coefficient(new.phys)
-    frac = max(0.0, 1.0 - after / before)
-    new.q_space = st.q_space * (1.0 - realisation * frac)
+    h_eff = st.hlc_eff if st.hlc_eff is not None else before
+    h_new = max(h_eff - realisation * max(before - after, 0.0), 1e-6)
+    new.q_space = st.q_space * h_new / h_eff
+    new.hlc_eff = h_new
     return new
 
 

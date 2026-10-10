@@ -236,8 +236,8 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 | **P1** Stabilise | verify engine, list UI gaps, merge `main` in | ✅ |
 | **P2** Next Best Action | thin selector over ComputedFacts, 3 traced reasons | ✅ |
 | **P3** API + core dashboard | FastAPI + one-port no-build web app; portfolio + property views | ✅ |
-| **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | 🔄 next |
-| **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | ⬜ |
+| **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | ✅ |
+| **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | 🔄 next |
 
 ### 2026-10-10 · P1: stabilise — verification note
 - **Tests:** `uv run pytest` → **88 passed** on `beautiful` before any change.
@@ -315,3 +315,34 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
   cost-based; a heat pump in an uninsulated home raises running cost — the "insulate first" lesson, from the engine).
 - **Tests:** 124 passed (8 new in `tests/test_api.py`).
 - **Next:** P4, the Decision Lab.
+
+### 2026-10-10 · P4: Decision Lab (the centrepiece)
+- **Engine** (`greeniq/lab.py`, `GET /api/properties/{id}/lab?budget=&objective=`): every non-empty subset of the
+  home's feasible measures is run through `analyse_home` (≤127 runs; 0.07 s for a 6-measure home). Definitions in
+  [`docs/METHODOLOGY.md` §8](METHODOLOGY.md).
+  - **Choose Your Plan:** Lowest cost · Greenest · Best value · My budget, each with a written definition; only
+    prerequisite-respecting packages; *best value* = kg CO₂e/yr per £1k (same £1k floor as the NBA).
+  - **Pareto frontier** (cost vs carbon) over genuinely feasible packages; packages that skip a prerequisite are
+    **shown as hollow points, not hidden** — some cut more carbon per £ (heat pump before insulating), and the UI says
+    why the plans still follow fabric-first (more electricity, EPC can fall: P02129 heat pump alone → E → F).
+  - **Interactions** per output (net kWh, kg CO₂e, score points) from paired runs on one baseline.
+  - **Sensitivity**: assumed/missing inputs set to plausible alternatives + savings realisation ±20%; *fragile* when the
+    NBA or the package changes; framed as "what to verify", not a confidence interval.
+- **Engine output addition:** `baseline_flows` / `package.flows_after` — purchased electricity, gas and self-used solar
+  by end use, for the Sankey. Grid flows reconcile with purchased electricity and gas flows with gas (tested).
+- **Engine bug found by the heatmap and fixed (energy 1.1):** with savings realisation < 100%, the second fabric measure
+  was judged against the *nominal* heat-loss cut of the first, so fabric pairs were super-additive (P02129 loft + solid
+  wall: +1,530 kWh/yr). The engine now tracks the realised heat-loss coefficient; standalone figures are unchanged,
+  fabric pairs are additive within rounding across 400 homes; regression test added. Evaluation regenerated:
+  savings metrics unchanged, ranking Spearman 0.912 → 0.913, score band agreement 90.9% → 91.5%.
+- **UI** (`#/lab/<id>`): NBA strip · Choose Your Plan cards ⇄ cost-vs-carbon scatter (click a point to select) ·
+  dependency graph (click to add/remove; a red dashed arrow when a measure is chosen without its prerequisite) ·
+  Sankey today vs selected on one scale · selected-package card (per-fuel before/after bars, carbon, score/EPC, cost,
+  value range, narrator) · Detail: interaction heatmap (output selector) and sensitivity tornado.
+- **Gate verified in the browser:** P02129 → Greenest: card and engine re-run agree (10.38 t/yr; electricity
+  2,630 → 7,470 kWh ▲; gas 61,630 → 210 ▼; score 27 → 88; EPC E → C); Sankey after = 9,460 kWh (7,470 grid +
+  210 gas + self-used solar). Lowest cost (loft): 2.20 t, 27 → 37. `tests/test_lab.py` checks the same consistency
+  for every named plan.
+- **Deferred on purpose:** benchmarking scatter / outlier residuals (design priority P2, after reference data is defensible).
+- **Tests:** 134 passed (10 new in `tests/test_lab.py`).
+- **Next:** P5 — grounded AI (narrator → grounding gate → template fallback) and the end-to-end edge-case validation.

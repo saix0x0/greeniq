@@ -83,6 +83,17 @@ class GreenIQService:
             raise UnknownProperty(property_id)
         return analyse_home(self.ds.property(property_id), self.ctx, scenario=scenario, constraints=constraints)
 
+    def lab(self, property_id: str, budget: float, objective: str) -> "LabResult":
+        if property_id not in self._ids:
+            raise UnknownProperty(property_id)
+        return self._lab_cached(property_id, round(budget, -2), objective)
+
+    @lru_cache(maxsize=128)
+    def _lab_cached(self, property_id: str, budget: float, objective: str):
+        from .lab import decision_lab
+
+        return decision_lab(self.ds.property(property_id), self.ctx, budget, {"objective": objective})
+
     # --- portfolio ------------------------------------------------------------------------
     def _load_or_build_rows(self) -> list[dict]:
         cur = self._db.execute("SELECT row FROM portfolio WHERE engine_key = ?", (self.engine_key,))

@@ -42,6 +42,12 @@ class BaselineEnergy(BaseModel):
     receipt: Receipt | None = None
 
 
+class Flow(BaseModel):
+    source: str
+    target: str
+    kwh: float
+
+
 class ImprovementPotential(BaseModel):
     status: Literal["available", "unavailable"]
     pct: float | None = None
@@ -89,6 +95,7 @@ class PackageResult(BaseModel):
     cost_low: int
     cost_high: int
     components_after: dict[str, float | None] = Field(default_factory=dict)  # score contribution per component
+    flows_after: list[Flow] = Field(default_factory=list)
     receipt: Receipt
 
 
@@ -172,6 +179,7 @@ class ComputedFacts(BaseModel):
     inputs: dict[str, Resolved]
     baseline: dict[str, BaselineEnergy]
     baseline_basis: Literal["metered", "estimated", "unavailable"]
+    baseline_flows: list[Flow] = Field(default_factory=list)  # modelled end-use split of the baseline
     intensity_kwh_m2: Resolved
     baseline_emissions_kg: Resolved = Field(default_factory=lambda: Resolved(basis="missing"))
     sap: Resolved

@@ -5,6 +5,7 @@
     GET  /api/properties                      list / search / filter (from the portfolio cache)
     GET  /api/properties/{id}                 full ComputedFacts + template explanation
     GET  /api/properties/{id}/next-best-action
+    GET  /api/properties/{id}/lab             Decision Lab: all feasible packages, plans, interactions, sensitivity
     POST /api/properties/{id}/scenarios       what-if → analyse_home reruns → new facts
 
 "Insufficient information" is a STATUS inside the facts, never an HTTP error.
@@ -132,6 +133,15 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
         f = svc().facts(property_id) if objective == DEFAULT_OBJECTIVE else \
             svc().scenario(property_id, None, {"objective": objective})
         return f.next_best_action.model_dump(mode="json")
+
+    @app.get("/api/properties/{property_id}/lab")
+    def lab(property_id: str, budget: float = 10000, objective: str = DEFAULT_OBJECTIVE):
+        """Every feasible package (engine run per package), named plans, interactions, sensitivity."""
+        if objective not in OBJECTIVES:
+            raise ValueError(f"unknown objective {objective!r}; choose one of {sorted(OBJECTIVES)}")
+        if not 0 < budget <= 500000:
+            raise ValueError("budget must be between £1 and £500,000")
+        return svc().lab(property_id, budget, objective).model_dump(mode="json")
 
     @app.post("/api/properties/{property_id}/scenarios")
     def scenario(property_id: str, req: ScenarioRequest):

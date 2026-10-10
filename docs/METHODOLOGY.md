@@ -81,7 +81,12 @@ per kWh. Because SCOP is fixed when the heat pump is installed, **insulating fir
 better heat pump result than insulating after** (tested).
 
 ### 3.3 Interactions (why a package ≠ the sum of its parts)
-- Fabric measures overlap: each removes a fraction of the *remaining* heat demand.
+- Fabric measures add up in heat-loss terms: each removes its share of the heat-loss
+  coefficient, realised at its calibrated rate. The engine tracks the **realised** HLC, so a
+  second fabric measure is judged against what the first one actually delivered
+  (energy engine 1.1). Before 1.1, with realisation < 100%, fabric pairs came out
+  super-additive (up to +1,530 kWh/yr on one home); the Decision Lab's interaction
+  heatmap exposed it and a regression test now guards it.
 - A heat pump after insulation supplies less heat, at a higher SCOP.
 - Solar is worth more after a heat pump: higher demand means more generation is self-consumed.
 
@@ -150,3 +155,50 @@ an accredited SAP assessment.
 
 Each conflict lowers confidence (high/medium/low, additive and capped). Missing inputs
 become ranked **questions for the customer** (e.g. "Do you have an EPC?").
+
+
+## 7. Next Best Action (`greeniq/engines/nba.py`)
+A **selector** over finished ComputedFacts: it computes no energy, carbon or cost number.
+1. **Blocked first.** A high-severity data conflict → refer for survey; heating system unknown
+   → ask the customer; no usable baseline at all → ask for meter readings; nothing feasible but
+   survey-gated measures → survey.
+2. **Otherwise** rank feasible measures whose prerequisites are not still pending (never a heat
+   pump while the fabric measures it depends on are outstanding) by
+   *benefit toward the objective × suitability weight* (High 1.0 · Medium 0.7 · Low 0.4).
+   - `value_for_money` (default): standalone kg CO₂e/yr per £1k of mid cost, with a **£1k cost
+     floor** (below ~£1k price is not what decides; without the floor a £250 thermostat won
+     every home).
+   - `carbon`: standalone kg CO₂e/yr. `energy`: standalone net kWh/yr.
+3. Nothing above 25 kg CO₂e/yr, or zero metered use → **no action**.
+
+It always returns **exactly three reasons**, each with a `fact_ref` path into the facts
+(tested to resolve), e.g. `plan[1].standalone`, `plan[4].depends_on`, `score.issues[3]`.
+
+## 8. Decision Lab (`greeniq/lab.py`)
+Every number is an `analyse_home` run; the Lab has no physics of its own.
+- **Feasible packages:** every non-empty subset of the home's feasible measures (≤ 2⁷ − 1 =
+  127), installed in the recommended order. A package **respects prerequisites** when each
+  measure's still-pending `depends_on` is included.
+- **Pareto-efficient (cost vs carbon):** among prerequisite-respecting packages, no other costs
+  less (mid cost) and saves at least as much carbon with one strictly better.
+- **Named plans** (prerequisite-respecting only):
+  - *Greenest* — most carbon saved (ties → cheaper).
+  - *Best value* — most kg CO₂e/yr per £1k of mid cost (£1k floor), among packages saving
+    ≥ 20% of the greenest plan's carbon.
+  - *Lowest cost* — the cheapest efficient package saving ≥ 20% of the greenest plan's carbon.
+  - *My budget* — most carbon saved where the **top** of the cost range fits the budget.
+- **Skipping the order is shown, not hidden.** Packages that skip a prerequisite (e.g. a heat
+  pump before insulating) appear as hollow points; some cut more carbon per £ today. The plans
+  follow fabric-first sequencing (UK whole-house retrofit guidance); selecting such a package
+  shows its consequences (e.g. P02129: heat pump alone → EPC E → F).
+- **Energy flows (Sankey):** purchased electricity, gas and self-consumed solar by end use
+  (space heating, hot water, appliances & lighting, gas cooking). Grid flows sum to purchased
+  electricity and gas flows to purchased gas (±10 kWh rounding per flow, tested); solar covers
+  the same share of each electric end use; exported solar is not a flow into the home.
+- **Interactions:** for each pair, joint saving − standalone A − standalone B, from paired runs
+  on the same baseline, **per output** (net kWh, kg CO₂e, score points). Negative = overlap;
+  positive = synergy (e.g. heat pump + solar).
+- **Sensitivity:** each assumed/missing input is set to plausible alternatives (e.g. walls
+  insulated / not; loft 50 / 270 mm) and savings realisation ±20%; the whole home is re-run. A
+  decision is **fragile** when the Next Best Action or the recommended package changes; the UI
+  says what to verify. This is a what-to-verify analysis, **not** a statistical confidence interval.
