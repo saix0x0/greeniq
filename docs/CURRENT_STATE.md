@@ -235,8 +235,8 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 |---|---|---|
 | **P1** Stabilise | verify engine, list UI gaps, merge `main` in | ✅ |
 | **P2** Next Best Action | thin selector over ComputedFacts, 3 traced reasons | ✅ |
-| **P3** API + core dashboard | FastAPI + one-port no-build web app; portfolio + property views | 🔄 next |
-| **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | ⬜ |
+| **P3** API + core dashboard | FastAPI + one-port no-build web app; portfolio + property views | ✅ |
+| **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | 🔄 next |
 | **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | ⬜ |
 
 ### 2026-10-10 · P1: stabilise — verification note
@@ -279,3 +279,39 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
   (fabric already done), glazing 247, solid wall 137, solar 80, no action 159, ask 48, survey 31.
 - **Tests:** 116 passed (28 new in `tests/test_nba.py`).
 - **Next:** P3, the API and the core dashboard (vertical slice).
+
+### 2026-10-10 · P3: API + core dashboard (the vertical slice)
+- **Run:** `uv run python -m greeniq serve` → http://127.0.0.1:8000 (UI + API on one port). Verified from a **fresh
+  clone with no API key**: health 200, UI 200. First start analyses all 3,000 homes (~10 s) and caches them in
+  `var/greeniq.sqlite`, keyed by engine versions + model card + data fingerprint; later starts ~3 s.
+  (`python -m greeniq` also sidesteps the macOS hidden-`.pth` issue noted in P1.)
+- **Service** (`greeniq/service.py`): the only place facts come from; calls `analyse_home`; a what-if always reruns it.
+- **API** (`greeniq/api.py`): `/api/health`, `/api/portfolio`, `/api/properties` (search, band/region/type/next-action
+  filters, sort by potential/score), `/api/properties/{id}` (facts + explanation), `/next-best-action?objective=`,
+  `POST /scenarios`, `/api/evidence`. Errors: one shape `{"error": {code, message}}` (404 unknown home, 422 bad measure or
+  objective). An infeasible measure in a what-if is **rejected with its reason inside the facts**, not an HTTP error.
+- **Engine output additions** (numbers the UI needed, computed by the engine, not the UI): `baseline_emissions_kg`
+  (baseline kWh × DESNZ factors, labelled metered/estimated) and `package.components_after` (score contribution per
+  component after the package, for the before/after decomposition overlay).
+- **Template narrator** (`greeniq/trust/narrator.py`): plain-English home and package explanations; every sentence carries
+  the fact paths it was built from (shown in Evidence mode). Explains the heat-pump trade-off and non-additivity.
+- **UI** (`greeniq/web/`, no build step): sidebar Dashboard · Properties · Decision Lab · Analytics · Evidence, a persistent
+  **Evidence/Demo** toggle and Settings (NBA objective, theme).
+  - *Dashboard:* KPI strip (avg score 53.2, opportunity 25.6 GWh / 4,682 tCO₂e with the gas ▼ / electricity ▲ split,
+    36.7% poor, 93% metered), band distribution (All / region / type / age), triage queue (All / Recommend / Refer)
+    with each home's Next Best Action, portfolio goal (53.0 → 79.8 if packages installed), opportunity by region,
+    quick actions.
+  - *Property view:* KPIs (score + status + confidence, purchased energy per fuel with basis, carbon, value range),
+    **score decomposition** (7 contributions vs points available, biggest-gap marker, outlined "after" overlay),
+    recommendations rail (Recommend / Refer / Not suitable), NBA card with its 3 traced reasons, where the energy goes
+    (heating vs baseload per fuel), **try a change** chips → engine rerun → per-fuel before/after, carbon, score, EPC and
+    the explanation.
+  - *Analytics / Evidence:* model-vs-baseline and ranking tables from `reports/metrics.json`; emission factors with
+    sources, cost ranges, engine versions, model quality.
+  - Every number comes from the API and carries an evidence tag (measured / metered / estimate / assumed / unavailable);
+    in Evidence mode dotted numbers open their receipt.
+- **Gate verified in the browser:** P02129 (Very poor, 27) → NBA loft insulation → try "air source heat pump" alone →
+  electricity 2,630 → 20,120 kWh (▲), gas 61,630 → 210 (▼), −8.14 t CO₂e, score 27 → 49, **EPC E → F** (SAP is
+  cost-based; a heat pump in an uninsulated home raises running cost — the "insulate first" lesson, from the engine).
+- **Tests:** 124 passed (8 new in `tests/test_api.py`).
+- **Next:** P4, the Decision Lab.
