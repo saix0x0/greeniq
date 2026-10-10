@@ -1,0 +1,64 @@
+{
+  "properties": 3000,
+  "customers": 2372,
+  "meter_rows": 183146,
+  "meter_rows_missing_kwh": 7428,
+  "sales": 2774,
+  "retrofit_events": 498,
+  "schema_errors": [],
+  "duplicate_property_ids": 0,
+  "duplicate_meter_rows": 0,
+  "orphan_meter_rows": 0,
+  "orphan_sales": 0,
+  "negative_kwh": 0,
+  "field_missing_rate": {
+    "property_id": 0.0,
+    "customer_id": 0.0,
+    "region": 0.0,
+    "property_type": 0.0,
+    "flat_position": 0.799,
+    "age_band": 0.039,
+    "floor_area_m2": 0.029,
+    "wall_type": 0.129,
+    "wall_insulated": 0.148,
+    "has_loft": 1.0,
+    "loft_insulation_mm": 0.303,
+    "floor_insulated": 0.432,
+    "glazing": 0.07,
+    "heating_system": 0.016,
+    "boiler_age_years": 0.398,
+    "has_gas_connection": 0.049,
+    "controls": 0.096,
+    "solar_pv_kwp": 0.055,
+    "roof_orientation": 0.288,
+    "roof_shading": 0.292,
+    "epc_band": 0.118,
+    "sap_score": 0.162,
+    "epc_year": 0.118,
+    "listed_or_conservation": 0.088,
+    "outdoor_space": 0.14
+  },
+  "passed": true,
+  "split_counts": {
+    "train": 2146,
+    "validation": 453,
+    "test": 401
+  },
+  "annualisation_status": {
+    "electricity": {
+      "metered_full": 1682,
+      "metered_partial": 1093,
+      "insufficient": 125,
+      "no_data": 73,
+      "zero": 27
+    },
+    "gas": {
+      "metered_full": 1334,
+      "metered_partial": 868,
+      "not_applicable": 573,
+      "insufficient": 98,
+      "no_data": 65,
+      "zero": 62
+    }
+  }
+}

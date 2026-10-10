@@ -1,0 +1,931 @@
+[
+  {
+    "property": {
+      "property_id": "FX-POOR-SEMI",
+      "customer_id": "FX-C1",
+      "region": "north",
+      "property_type": "semi_detached",
+      "age_band": "pre_1919",
+      "floor_area_m2": 95,
+      "wall_type": "solid",
+      "wall_insulated": false,
+      "loft_insulation_mm": 25,
+      "floor_insulated": false,
+      "glazing": "single",
+      "heating_system": "gas_boiler_noncondensing",
+      "boiler_age_years": 22,
+      "has_gas_connection": true,
+      "controls": "none",
+      "solar_pv_kwp": 0,
+      "roof_orientation": "south",
+      "roof_shading": "low",
+      "epc_band": "F",
+      "sap_score": 36,
+      "epc_year": 2019,
+      "listed_or_conservation": false,
+      "outdoor_space": true,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "gas",
+          "kwh": 1922.1
+        },
+        {
+          "month": "2025-11",
+          "fuel": "gas",
+          "kwh": 2756.2
+        },
+        {
+          "month": "2025-12",
+          "fuel": "gas",
+          "kwh": 3514.7
+        },
+        {
+          "month": "2026-01",
+          "fuel": "gas",
+          "kwh": 3694.0
+        },
+        {
+          "month": "2026-02",
+          "fuel": "gas",
+          "kwh": 3347.2
+        },
+        {
+          "month": "2026-03",
+          "fuel": "gas",
+          "kwh": 3383.7
+        },
+        {
+          "month": "2026-04",
+          "fuel": "gas",
+          "kwh": 2293.8
+        },
+        {
+          "month": "2026-05",
+          "fuel": "gas",
+          "kwh": 1570.1
+        },
+        {
+          "month": "2026-06",
+          "fuel": "gas",
+          "kwh": 736.6
+        },
+        {
+          "month": "2026-07",
+          "fuel": "gas",
+          "kwh": 545.8
+        },
+        {
+          "month": "2026-08",
+          "fuel": "gas",
+          "kwh": 549.6
+        },
+        {
+          "month": "2026-09",
+          "fuel": "gas",
+          "kwh": 874.4
+        },
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 251.8
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 254.2
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 270.6
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 272.7
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 246.4
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 269.0
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 248.8
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 247.7
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 230.5
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 235.6
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 235.7
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 232.1
+        }
+      ]
+    },
+    "true_model": {
+      "gas": {
+        "a": 9.0,
+        "b": 8.5
+      },
+      "electricity": {
+        "a": 7.5,
+        "b": 0.1
+      }
+    },
+    "expected": {
+      "why": "PS2-style poor home: solid walls, single glazing, old boiler",
+      "band_in": [
+        "Poor",
+        "Very poor"
+      ],
+      "improvement_potential": "available",
+      "feasible": [
+        "loft_insulation",
+        "solid_wall_insulation",
+        "glazing_upgrade",
+        "air_source_heat_pump",
+        "solar_pv",
+        "smart_controls"
+      ],
+      "infeasible": [
+        "cavity_wall_insulation"
+      ]
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-HP-CANDIDATE",
+      "customer_id": "FX-C2",
+      "region": "midlands",
+      "property_type": "semi_detached",
+      "age_band": "1965_1980",
+      "floor_area_m2": 88,
+      "wall_type": "cavity",
+      "wall_insulated": false,
+      "loft_insulation_mm": 100,
+      "floor_insulated": false,
+      "glazing": "double_pre_2002",
+      "heating_system": "gas_boiler_condensing",
+      "boiler_age_years": 9,
+      "has_gas_connection": true,
+      "controls": "programmer_thermostat",
+      "solar_pv_kwp": 0,
+      "roof_orientation": "south",
+      "roof_shading": "low",
+      "epc_band": "D",
+      "sap_score": 58,
+      "epc_year": 2021,
+      "listed_or_conservation": false,
+      "outdoor_space": true,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "gas",
+          "kwh": 835.9
+        },
+        {
+          "month": "2025-11",
+          "fuel": "gas",
+          "kwh": 1269.9
+        },
+        {
+          "month": "2025-12",
+          "fuel": "gas",
+          "kwh": 1893.3
+        },
+        {
+          "month": "2026-01",
+          "fuel": "gas",
+          "kwh": 1643.0
+        },
+        {
+          "month": "2026-02",
+          "fuel": "gas",
+          "kwh": 1617.4
+        },
+        {
+          "month": "2026-03",
+          "fuel": "gas",
+          "kwh": 1352.8
+        },
+        {
+          "month": "2026-04",
+          "fuel": "gas",
+          "kwh": 1153.0
+        },
+        {
+          "month": "2026-05",
+          "fuel": "gas",
+          "kwh": 756.4
+        },
+        {
+          "month": "2026-06",
+          "fuel": "gas",
+          "kwh": 428.4
+        },
+        {
+          "month": "2026-07",
+          "fuel": "gas",
+          "kwh": 306.3
+        },
+        {
+          "month": "2026-08",
+          "fuel": "gas",
+          "kwh": 309.9
+        },
+        {
+          "month": "2026-09",
+          "fuel": "gas",
+          "kwh": 492.6
+        },
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 249.5
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 247.0
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 262.1
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 259.1
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 235.7
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 255.7
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 245.6
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 248.6
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 237.0
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 243.2
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 243.3
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 237.7
+        }
+      ]
+    },
+    "true_model": {
+      "gas": {
+        "a": 6.0,
+        "b": 4.2
+      },
+      "electricity": {
+        "a": 7.8,
+        "b": 0.05
+      }
+    },
+    "expected": {
+      "why": "Heat pump switch: gas falls, electricity rises (negative electricity saving)",
+      "heat_pump_raises_electricity": true,
+      "fabric_before_heat_pump": true,
+      "feasible": [
+        "loft_insulation",
+        "cavity_wall_insulation",
+        "air_source_heat_pump",
+        "solar_pv"
+      ]
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-MID-FLAT",
+      "customer_id": "FX-C3",
+      "region": "london",
+      "property_type": "flat",
+      "flat_position": "mid",
+      "age_band": "1965_1980",
+      "floor_area_m2": 55,
+      "wall_type": "cavity",
+      "wall_insulated": true,
+      "glazing": "double_pre_2002",
+      "heating_system": "electric_storage",
+      "has_gas_connection": false,
+      "controls": "programmer_thermostat",
+      "solar_pv_kwp": 0,
+      "epc_band": "E",
+      "sap_score": 47,
+      "epc_year": 2018,
+      "listed_or_conservation": false,
+      "outdoor_space": false,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 488.4
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 649.4
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 751.4
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 776.9
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 699.0
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 752.8
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 553.6
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 479.6
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 343.2
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 318.5
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 323.6
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 376.3
+        }
+      ]
+    },
+    "true_model": {
+      "electricity": {
+        "a": 9.0,
+        "b": 1.6
+      }
+    },
+    "expected": {
+      "why": "Mid-floor flat: loft, solar and heat pump are infeasible",
+      "infeasible": [
+        "loft_insulation",
+        "solar_pv",
+        "air_source_heat_pump",
+        "cavity_wall_insulation"
+      ],
+      "gas_status": "not_applicable"
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-MISSING-DATA",
+      "customer_id": "FX-C4",
+      "region": "south_east",
+      "property_type": "terraced",
+      "floor_area_m2": 82,
+      "heating_system": "gas_boiler_condensing",
+      "has_gas_connection": true,
+      "meter_readings": [
+        {
+          "month": "2026-07",
+          "fuel": "gas",
+          "kwh": 264.7
+        },
+        {
+          "month": "2026-08",
+          "fuel": "gas",
+          "kwh": 284.9
+        },
+        {
+          "month": "2026-09",
+          "fuel": "gas",
+          "kwh": 402.4
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 217.0
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 217.0
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 210.0
+        }
+      ]
+    },
+    "true_model": {
+      "gas": {
+        "a": 5.5,
+        "b": 4.0
+      },
+      "electricity": {
+        "a": 7.0,
+        "b": 0.0
+      }
+    },
+    "expected": {
+      "why": "New customer: 3 months of reads, no EPC, unknown age and fabric",
+      "annualisation": "insufficient",
+      "score_status_in": [
+        "partial",
+        "provisional"
+      ]
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-LARGE-EFFICIENT",
+      "customer_id": "FX-C5",
+      "region": "south_west",
+      "property_type": "detached",
+      "age_band": "post_2002",
+      "floor_area_m2": 280,
+      "wall_type": "cavity",
+      "wall_insulated": true,
+      "loft_insulation_mm": 300,
+      "floor_insulated": true,
+      "glazing": "triple",
+      "heating_system": "air_source_heat_pump",
+      "has_gas_connection": false,
+      "controls": "smart_zoned",
+      "solar_pv_kwp": 4.0,
+      "roof_orientation": "south",
+      "roof_shading": "low",
+      "epc_band": "B",
+      "sap_score": 84,
+      "epc_year": 2022,
+      "listed_or_conservation": false,
+      "outdoor_space": true,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 912.1
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 1177.3
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 1471.0
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 1332.0
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 1212.1
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 1174.9
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 978.2
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 747.4
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 588.2
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 509.4
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 507.4
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 596.5
+        }
+      ]
+    },
+    "true_model": {
+      "electricity": {
+        "a": 14.0,
+        "b": 3.0
+      }
+    },
+    "expected": {
+      "why": "Large home with high total use but low intensity: must not be flagged poor",
+      "is_poor": false,
+      "band_in": [
+        "Good",
+        "Highly efficient"
+      ]
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-VOID-ZERO",
+      "customer_id": "FX-C6",
+      "region": "wales",
+      "property_type": "semi_detached",
+      "age_band": "1945_1964",
+      "floor_area_m2": 85,
+      "wall_type": "cavity",
+      "wall_insulated": true,
+      "loft_insulation_mm": 150,
+      "glazing": "double_pre_2002",
+      "heating_system": "gas_boiler_condensing",
+      "boiler_age_years": 6,
+      "has_gas_connection": true,
+      "controls": "programmer_thermostat",
+      "solar_pv_kwp": 0,
+      "epc_band": "D",
+      "sap_score": 62,
+      "epc_year": 2020,
+      "outdoor_space": true,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2025-11",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2025-12",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-01",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-02",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-03",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-04",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-05",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-06",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-07",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-08",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-09",
+          "fuel": "gas",
+          "kwh": 0.0
+        },
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 0.0
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 0.0
+        }
+      ]
+    },
+    "true_model": {
+      "gas": {
+        "a": 0.0,
+        "b": 0.0
+      },
+      "electricity": {
+        "a": 0.0,
+        "b": 0.0
+      }
+    },
+    "expected": {
+      "why": "Void property: zero baseline, so improvement potential is unavailable",
+      "improvement_potential": "unavailable"
+    }
+  },
+  {
+    "property": {
+      "property_id": "FX-CONFLICT",
+      "customer_id": "FX-C7",
+      "region": "scotland",
+      "property_type": "detached",
+      "age_band": "1981_2002",
+      "floor_area_m2": 130,
+      "wall_type": "cavity",
+      "wall_insulated": true,
+      "loft_insulation_mm": 200,
+      "glazing": "double_post_2002",
+      "heating_system": "air_source_heat_pump",
+      "has_gas_connection": true,
+      "controls": "smart_thermostat",
+      "solar_pv_kwp": 0,
+      "epc_band": "C",
+      "sap_score": 72,
+      "epc_year": 2023,
+      "outdoor_space": true,
+      "meter_readings": [
+        {
+          "month": "2025-10",
+          "fuel": "gas",
+          "kwh": 951.8
+        },
+        {
+          "month": "2025-11",
+          "fuel": "gas",
+          "kwh": 1453.5
+        },
+        {
+          "month": "2025-12",
+          "fuel": "gas",
+          "kwh": 1703.7
+        },
+        {
+          "month": "2026-01",
+          "fuel": "gas",
+          "kwh": 1956.4
+        },
+        {
+          "month": "2026-02",
+          "fuel": "gas",
+          "kwh": 1658.3
+        },
+        {
+          "month": "2026-03",
+          "fuel": "gas",
+          "kwh": 1809.1
+        },
+        {
+          "month": "2026-04",
+          "fuel": "gas",
+          "kwh": 1298.6
+        },
+        {
+          "month": "2026-05",
+          "fuel": "gas",
+          "kwh": 797.7
+        },
+        {
+          "month": "2026-06",
+          "fuel": "gas",
+          "kwh": 416.1
+        },
+        {
+          "month": "2026-07",
+          "fuel": "gas",
+          "kwh": 278.9
+        },
+        {
+          "month": "2026-08",
+          "fuel": "gas",
+          "kwh": 316.4
+        },
+        {
+          "month": "2026-09",
+          "fuel": "gas",
+          "kwh": 497.2
+        },
+        {
+          "month": "2025-10",
+          "fuel": "electricity",
+          "kwh": 327.7
+        },
+        {
+          "month": "2025-11",
+          "fuel": "electricity",
+          "kwh": 370.4
+        },
+        {
+          "month": "2025-12",
+          "fuel": "electricity",
+          "kwh": 402.9
+        },
+        {
+          "month": "2026-01",
+          "fuel": "electricity",
+          "kwh": 428.1
+        },
+        {
+          "month": "2026-02",
+          "fuel": "electricity",
+          "kwh": 375.8
+        },
+        {
+          "month": "2026-03",
+          "fuel": "electricity",
+          "kwh": 413.4
+        },
+        {
+          "month": "2026-04",
+          "fuel": "electricity",
+          "kwh": 354.9
+        },
+        {
+          "month": "2026-05",
+          "fuel": "electricity",
+          "kwh": 312.3
+        },
+        {
+          "month": "2026-06",
+          "fuel": "electricity",
+          "kwh": 266.6
+        },
+        {
+          "month": "2026-07",
+          "fuel": "electricity",
+          "kwh": 260.4
+        },
+        {
+          "month": "2026-08",
+          "fuel": "electricity",
+          "kwh": 264.1
+        },
+        {
+          "month": "2026-09",
+          "fuel": "electricity",
+          "kwh": 274.7
+        }
+      ]
+    },
+    "true_model": {
+      "gas": {
+        "a": 5.0,
+        "b": 4.0
+      },
+      "electricity": {
+        "a": 8.0,
+        "b": 0.4
+      }
+    },
+    "expected": {
+      "why": "Records a heat pump, but meters show substantial gas heating: conflict",
+      "conflict": "heating_system_vs_gas_use"
+    }
+  }
+]

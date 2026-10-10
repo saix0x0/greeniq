@@ -15,8 +15,8 @@
 |---|---|---|
 | **0** Audit & plan | Requirement matrix, architecture, decisions, risk register (this doc) | ✅ done |
 | **1** Contract + Green Home Score | Domain schema; 7 monotonic sub-scores; PS weights; bands; receipts; tests | ✅ done (36 tests green) |
-| **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | 🔄 next |
-| **3** Engines | Annualisation, per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, receipts | ⬜ |
+| **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | ✅ done (48 tests green) |
+| **3** Engines | Per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, conflicts, receipts | 🔄 next |
 | **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | ⬜ |
 | **5** API + persistence + memory | FastAPI, SQLite, scenarios, customer memory | ⬜ |
 | **6** Dashboard | One-port web app: score, fingerprint, plan, scenario lab, roadmap, portfolio, receipts | ⬜ |
@@ -28,6 +28,7 @@
 
 ```bash
 uv sync                      # create .venv with pinned dependencies (uv.lock)
+uv run greeniq generate      # rebuild data/ from the simulator (seed 42, ~6 s)
 uv run pytest                # run the test suite
 ```
 
@@ -78,7 +79,7 @@ The **Status** column is updated as phases land.
 | FR-7 | LLM explains computed facts only; what-if reruns engines first | `greeniq/trust/` (gate, narrator, assistant) | gate rejects invented numbers; what-if recompute test | ⬜ |
 | FR-8 | Customer dashboard | `greeniq/web/` served by `greeniq/api.py` | E2E smoke test | ⬜ |
 | FR-9 | Customer memory (optional) | `greeniq/memory.py` | "plan changes as memory builds" test | ⬜ |
-| DR-1..7 | Data: synthetic/public, entities, grouped splits, no leakage, annualisation, data card, factors | `greeniq/simulator/`, `greeniq/data.py`, `data/DATA_CARD.md` | split-leakage test, validation report | ⬜ |
+| DR-1..7 | Data: synthetic/public, entities, grouped splits, no leakage, annualisation, data card, factors | `greeniq/simulator/`, `greeniq/data.py`, `greeniq/features/annualise.py`, [`data/DATA_CARD.md`](../data/DATA_CARD.md) | `tests/test_data.py` (determinism, split disjointness, no zero-fill, architecture guard) | ✅ (DR-7 factors land in Phase 3) |
 | ER-1..5 | Splits, baselines, reproducibility, LLM targets, scenario tests | `greeniq/evaluation/`, `reports/` | `greeniq evaluate` regenerates `reports/EVALUATION.md` | ⬜ |
 | SR-A..I | Nine submission artifacts | see §6 | checklist | ⬜ |
 
@@ -188,3 +189,15 @@ flowchart LR
 - **Tests:** `uv run pytest` → **36 passed** (weights, bands, rounding, monotonicity of every mapping, whole-score monotonicity over 300 generated homes, missing-data states, fairness, contract validation).
 - **Docs:** [`docs/SCORING_METHOD.md`](SCORING_METHOD.md) (submission artifact D).
 - **Next:** Phase 2, the synthetic world simulator and data pipeline.
+
+### 2026-10-10 · Phase 2: synthetic world and data pipeline
+- **Simulator** (`greeniq/simulator/world.py`): physics-lite heat loss + people + weather + installers + market, observed through imperfect records, monthly meters and sales. It holds **hidden truth the engines never see** (behaviour, under-heating of leaky homes, installation quality, heat-pump SCOP spread, smart-thermostat effect, location premium), so evaluation is not circular.
+- **Calibration vs public anchors:** median gas 12,120 kWh (Ofgem TDCV 11,500), median electricity 2,757 kWh for gas homes (TDCV 2,700), median SAP 66 (band D).
+- **Dataset** (`uv run greeniq generate`, 5.4 s): 3,000 homes · 2,372 customers (436 own several homes) · 183,146 monthly reads · 2,774 sales · 498 historical retrofits with before/after meter data · deliberate imperfections (12% no EPC, 487 stale EPCs, 24 wrong heating records, 4% missing reads, new customers, 27 void homes).
+- **Validation:** every record passes through the contract; 0 schema errors, 0 duplicates, 0 orphans.
+- **Splits by customer** (hash of customer ID): train 2,146 · validation 453 · test 401 homes; disjointness tested.
+- **Annualisation** (`greeniq/features/annualise.py`): degree-day regression (PRISM), weather-normalised, splits baseload from heating, **never zero-fills** a missing month (tested: removing 3 months changes the annual figure by under 2%; a zero-fill would have under-counted). Explicit states: full · partial · insufficient · zero · no data · not applicable.
+- **Golden fixtures** (`tests/fixtures/sample_properties.json`): 7 edge-case homes (PS-style poor semi, heat-pump candidate, mid-floor flat, missing data, large efficient detached, void/zero, conflicting records), each with documented expected behaviour.
+- **Architecture guard:** a test fails if any product module imports the simulator or the hidden truth.
+- **Tests:** 48 passed. **Docs:** [`data/DATA_CARD.md`](../data/DATA_CARD.md).
+- **Next:** Phase 3, the deterministic engines (per-fuel energy, retrofit planner, carbon, rating change, conflicts) and the `analyse_home` pipeline.
