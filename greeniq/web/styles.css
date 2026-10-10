@@ -354,6 +354,41 @@ table.data tr.clickable { cursor: pointer; }
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
 .kpi-def { cursor: help; border-bottom: 1px dotted var(--line-2); }
 
+/* loss-aversion banner */
+.loss-banner { display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 18px;
+  background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); border-radius: var(--r); }
+.loss-banner .loss-ico { font-size: 22px; flex: 0 0 auto; }
+.loss-banner b { color: var(--ink); } .loss-banner .small { color: var(--ink-2); margin-top: 2px; }
+.loss-banner .btn { margin-left: auto; flex: 0 0 auto; white-space: nowrap; }
+
+/* narrative interpretation line under a metric (Claude-dashboard style) */
+.readout { font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+.readout.good { color: var(--good); } .readout.warn { color: var(--warn); }
+
+/* page tabs (merged sections) */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.tabs button { padding: 9px 15px; border: none; background: transparent; color: var(--ink-3); font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Green Home Grid */
+.ghg-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.ghg { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.ghg-tile { border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; background: var(--card);
+  display: flex; flex-direction: column; gap: 6px; transition: transform .08s, border-color .12s; position: relative; overflow: hidden; }
+.ghg-tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bc); }
+.ghg-tile:hover { transform: translateY(-2px); border-color: var(--line-2); }
+.ghg-tile .ghg-score { font-size: 24px; font-weight: 750; line-height: 1; color: var(--bc); font-variant-numeric: tabular-nums; }
+.ghg-tile .ghg-id { font-size: 12px; font-weight: 600; }
+.ghg-tile .ghg-meta { font-size: 10.5px; color: var(--ink-3); }
+.ghg-tile.poor-flag { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 30%, transparent); }
+.ghg-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 11.5px; color: var(--ink-3); }
+.ghg-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ghg-legend i { width: 11px; height: 11px; border-radius: 3px; }
+
+/* gauge with target marker */
+.gauge { position: relative; width: 150px; height: 84px; margin: 0 auto; }
+
 /* ---------- comparison charts ---------- */
 .cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 900px) { .cmp-grid { grid-template-columns: 1fr; } }

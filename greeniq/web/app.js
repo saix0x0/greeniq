@@ -38,6 +38,22 @@ const signed = (n, unit = "") => (n > 0 ? "−" : n < 0 ? "+" : "") + fmt(Math.a
 const BAND_VAR = { "Very poor": "--b-vp", "Poor": "--b-p", "Moderate": "--b-m", "Good": "--b-g", "Highly efficient": "--b-he" };
 const bandCol = (b) => `var(${BAND_VAR[b] || "--b-u"})`;
 
+// ── one canonical baseline for the whole UI (fixes the 15,871 vs 15,880 split).
+// The package baseline is what savings / before-after / improvement-% all reference, so use it
+// everywhere a home has a feasible package; fall back to the precise annualised baseline otherwise.
+function energyView(f) {
+  const im = f.package?.impact;
+  const elec = im ? im.electricity.baseline_kwh : (f.baseline?.electricity?.annual_kwh ?? null);
+  const gas = im ? im.gas.baseline_kwh : (f.baseline?.gas?.annual_kwh ?? null);
+  return { elec, gas, total: (elec ?? 0) + (gas ?? 0), basis: f.baseline_basis, source: im ? "package" : "annualised" };
+}
+// Indicative money overlay. Ofgem Jan–Mar 2025 price cap unit rates (GB average, single rate),
+// a documented presentation assumption — NOT an engine figure, always labelled "indicative".
+const TARIFF = { elec: 0.2497, gas: 0.0625, source: "Ofgem price cap, Jan–Mar 2025 (GB avg unit rates)" };
+const poundsPerYear = (elecKwh, gasKwh) => (elecKwh || 0) * TARIFF.elec + (gasKwh || 0) * TARIFF.gas;
+// Relatable carbon: illustrative equivalents, shown as ranges, never as offsets.
+const carbonEquiv = (tonnes) => tonnes > 0 ? `≈ ${fmt(tonnes * 4.2, 0)} return London–Edinburgh flights` : "";
+
 // evidence basis → honest tag
 const BASIS_TAG = { observed: "measured", metered: "measured", measured: "measured", estimated: "estimated", assumed: "assumed", unavailable: "unavailable" };
 function tag(basis, why) {
@@ -168,17 +184,15 @@ async function renderAi(id, pid, scope) {
 
 // ──────────────────────────────────────────────────────────── ROUTES
 const ROUTES = {
-  overview:     { group: "YOUR HOME", ico: "🏠", label: "Home overview", needs: "home", render: pageOverview },
-  property:     { group: "YOUR HOME", ico: "📋", label: "My property", needs: "home", render: pageProperty },
-  advisor:      { group: "YOUR HOME", ico: "✦", label: "AI energy advisor", needs: "home", render: pageAdvisor },
-  improvements: { group: "YOUR HOME", ico: "🔧", label: "Improvements", needs: "home", render: pageImprovements },
-  plans:        { group: "YOUR HOME", ico: "⚖", label: "Compare plans", needs: "home", render: pagePlans },
-  energy:       { group: "YOUR HOME", ico: "⚡", label: "Energy & carbon", needs: "home", render: pageEnergy },
-  value:        { group: "YOUR HOME", ico: "🏷", label: "Home value", needs: "home", render: pageValue },
-  evidence:     { group: "YOUR HOME", ico: "📑", label: "Evidence & reports", needs: "home", render: pageEvidence },
+  overview:     { group: "YOUR HOME", ico: "🏠", label: "Overview", needs: "home", render: pageOverview },
+  property:     { group: "YOUR HOME", ico: "📊", label: "Score Breakdown", needs: "home", render: pageProperty },
+  improvements: { group: "UPGRADES", ico: "🔧", label: "Recommended Upgrades", needs: "home", render: pageImprovements },
+  plans:        { group: "UPGRADES", ico: "⚖", label: "Compare Options", needs: "home", render: pagePlans },
+  advisor:      { group: "ADVISOR", ico: "✦", label: "AI Advisor", needs: "home", render: pageAdvisor },
+  lender:       { group: "PORTFOLIO", ico: "🏦", label: "Ranking", render: pageLender },
+  compare:      { group: "PORTFOLIO", ico: "🏘", label: "Compare Homes", needs: "home", render: pageCompareHomes },
+  methods:      { group: "TRUST", ico: "📑", label: "Methods & Evidence", render: pageMethods },
   settings:     { group: "PREFERENCES", ico: "⚙", label: "Settings", render: pageSettings },
-  help:         { group: "PREFERENCES", ico: "?", label: "Help & methodology", render: pageHelp },
-  lender:       { group: "LENDER WORKSPACE", ico: "🏦", label: "Portfolio ranking", render: pageLender },
 };
 
 function buildNav() {
@@ -234,6 +248,7 @@ function afterRender(root) {
   const fill = (sel, fn) => { const el = $(sel); if (el && !el.dataset.filled) { el.dataset.filled = "1"; fn(); } };
   if ($("#sample-homes", root)) fillSampleHomes();
   fill("#rank-body", fillRanking);
+  fill("#ghg", fillGrid);
   fill("#group-table", () => fillGroups("region"));
   fill("#custom-result", recomputeCustom);
   fill("#pareto", drawPareto);
@@ -314,6 +329,22 @@ function comparisonSection(f, st, pf) {
         <div class="card-sub">Real peer medians from DESNZ NEED <span class="tag real">real data</span> — ${esc(f.peer?.peer_group || "")}. Guidance, not judgement.</div>
         ${peerCompare(f.peer?.fuels)}</div>
     </div></div>`;
+}
+// ── Compare Homes (full peer comparison, moved out of the overview) ──
+async function pageCompareHomes() {
+  const { facts: f } = await loadFacts(S.pid);
+  const [st, pf] = await Promise.all([
+    api(`/api/properties/${encodeURIComponent(S.pid)}/standing`).catch(() => null),
+    getPortfolio().catch(() => null),
+  ]);
+  return `${pageHead("Compare Homes", `How <b>${esc(S.pid)}</b> stacks up against similar homes and the wider portfolio — the same engine, plus real DESNZ NEED peer medians.`)}
+    <div class="card" style="margin-bottom:16px"><div class="grid cols-3" style="gap:14px">
+      <div class="stat"><span class="k">Energy intensity</span><span class="v sm">${fmt(f.intensity_kwh_m2?.value)}<span class="muted" style="font-size:13px"> kWh/m²</span></span><span class="foot">${tag(f.intensity_kwh_m2?.basis)} · the fair size-adjusted measure</span></div>
+      <div class="stat"><span class="k">Peer group</span><span class="v sm" style="font-size:15px">${esc(f.peer?.peer_group || "—")}</span><span class="foot">${fmt((f.peer?.fuels || [])[0]?.n_peers)} real homes</span></div>
+      <div class="stat"><span class="k">Standing</span><span class="v sm">${st?.similar ? `top ${fmt(100 - st.similar.percentile)}%` : "—"}</span><span class="foot">among ${st?.similar ? fmt(st.similar.homes) : "—"} similar homes</span></div>
+    </div></div>
+    ${comparisonSection(f, st, pf)}
+    <div class="callout info" style="margin-top:4px">A larger home isn't automatically inefficient: the comparisons here use <b>energy intensity</b> (kWh/m²) and peers of the same size band, never raw total consumption.</div>`;
 }
 
 // ──────────────────────────────────────────────────────────── Decision-Lab charts
@@ -421,11 +452,22 @@ async function pageOverview() {
     getPortfolio().catch(() => null),
   ]);
   const sum = f.property_summary, sc = f.score, pkg = f.package, nba = f.next_best_action, val = f.value;
-  const purchased = (f.baseline?.electricity?.annual_kwh || 0) + (f.baseline?.gas?.annual_kwh || 0);
+  const ev = energyView(f);
+  const purchased = ev.total;
+  const im = pkg?.impact;
+  const savePounds = im ? poundsPerYear(im.electricity.saving_kwh, im.gas.saving_kwh) : 0;
+  const saveTonnes = im?.carbon?.total_tonnes || 0;
   const issues = (sc.issues || []).slice(0, 3);
   const recs = (f.plan || []).slice(0, 3);
 
-  return `${pageHead("Home overview", `A plain-language read of <b>${esc(S.pid)}</b> — where it stands today and the single most useful next step.`)}
+  return `${pageHead("Overview", `A plain-language read of <b>${esc(S.pid)}</b> — where it stands today and the single most useful next step.`)}
+
+  ${im && savePounds > 0 ? `<div class="loss-banner">
+    <div class="loss-ico">⚠</div>
+    <div><b>This home is leaving about ${rc(gbp(savePounds), im.carbon?.receipt)} and ${fmt(saveTonnes, 2)} t CO₂ on the table every year.</b>
+    <div class="small">That's the bill and carbon the recommended plan would stop wasting — ${esc(carbonEquiv(saveTonnes))}. Money figure indicative, at the Ofgem cap; energy &amp; carbon are engine-computed.</div></div>
+    <button class="btn primary sm" data-goto="improvements">Stop the waste →</button>
+  </div>` : ""}
 
   <div class="section-eyebrow">01 · Your home today</div>
   <div class="card pad-lg">
@@ -481,13 +523,19 @@ async function pageOverview() {
           <div class="stat"><span class="k">Purchased energy</span><span class="v sm delta good">−${pct(pkg.improvement_potential?.pct)}</span><span class="foot">${rc(kwh(pkg.impact?.net_saving_kwh), pkg.impact?.carbon?.receipt)} less a year</span></div>
           <div class="stat"><span class="k">Carbon</span><span class="v sm delta good">−${fmt(pkg.impact?.carbon?.total_tonnes, 2)} t</span><span class="foot">CO₂e a year</span></div>
           <div class="stat"><span class="k">Indicative value</span><span class="v sm">${val?.status === "available" && val.uplift_pct_range ? `+${pctRange(val.uplift_pct_range[0], val.uplift_pct_range[1])}` : "—"}</span><span class="foot">${val?.status === "available" ? "range, not a promise" : "no band change → no uplift"}</span></div>
-        </div><div class="btn-row" style="margin-top:12px"><button class="btn sm" data-goto="plans">Compare plans</button><button class="btn sm ghost" data-goto="energy">Energy & carbon detail</button></div>`
+        </div><div class="btn-row" style="margin-top:12px"><button class="btn sm" data-goto="plans">Compare options</button><button class="btn sm ghost" data-goto="improvements">Energy &amp; carbon detail</button></div>`
           : `<p class="muted">No feasible package for this home yet.</p>`}
       </div>
     </div>
   </div>
 
-  ${comparisonSection(f, st, pf)}
+  <div class="section">
+    <div class="section-eyebrow">How you compare</div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>${st?.similar ? `This home scores higher than <b>${fmt(st.similar.percentile)}%</b> of ${fmt(st.similar.homes)} ${esc(st.similar.definition)} homes; the typical similar home scores <b>${fmt(st.similar.median_score)}</b>.` : "Peer comparison available for this home."}</div>
+      <button class="btn sm" data-goto="compare">See full comparison →</button>
+    </div></div>
+  </div>
 
   <div class="section">
     <div class="section-eyebrow">04 · Explore your options</div>
@@ -525,11 +573,19 @@ async function pageProperty() {
   const sc = f.score, sum = f.property_summary;
   const sumContrib = (sc.components || []).reduce((a, c) => a + c.contribution, 0);
   const openItems = [...(f.conflicts || []).map((c) => ({ kind: "conflict", ...c })), ...(f.questions || []).map((q) => ({ kind: "question", ...q }))];
+  // data completeness is distinct from calculation confidence — show both
+  const comps = sc.components || [];
+  const measured = comps.filter((c) => BASIS_TAG[c.basis] === "measured").length;
+  const conf = f.confidence || {};
+  const confReceipt = { output: "confidence", value: conf.value, unit: "0–1 (high ≥ 0.75)",
+    method: "Starts at 0.90; −0.04 per assumed/estimated component, −0.15 if a component can't be assessed, −0.2/−0.1/−0.03 per conflict, −0.2 if baseline is only estimated",
+    method_version: "pipeline/_confidence", provider: "deterministic", notes: conf.reasons };
 
-  return `${pageHead("My property", `Every input, every sub-score, and anything still unresolved for <b>${esc(S.pid)}</b>.`)}
+  return `${pageHead("Score Breakdown", `Every input, every sub-score, and anything still unresolved for <b>${esc(S.pid)}</b>.`)}
 
   <div class="card pad-lg"><div class="hero-identity">
-    <div class="score-hero">${scoreRing(sc.score, sc.band, sc.score_range)}<div><div>${bandChip(sc.band, sc.score)}</div><h2 style="margin-top:6px">${sc.score != null ? `${sc.score}/100` : (sc.score_range ? `${sc.score_range[0]}–${sc.score_range[1]}` : "—")}</h2><div class="small muted">${esc(sc.status)} · confidence ${esc(f.confidence?.level)}</div></div></div>
+    <div class="score-hero">${scoreRing(sc.score, sc.band, sc.score_range)}<div><div>${bandChip(sc.band, sc.score)}</div><h2 style="margin-top:6px">${sc.score != null ? `${sc.score}/100` : (sc.score_range ? `${sc.score_range[0]}–${sc.score_range[1]}` : "—")}</h2>
+      <div class="small muted">${esc(sc.status)} · confidence ${rc(`${esc(conf.level)} · ${fmt(conf.value, 2)}`, confReceipt)} · <b>${measured}/${comps.length}</b> components measured</div></div></div>
     <div class="identity-facts">
       <div><span class="k">Type</span><b>${esc(words(sum.property_type))}</b></div>
       <div><span class="k">Age band</span><b>${esc(words(sum.age_band))} ${tag(ib(f.inputs?.age_band))}</b></div>
@@ -572,7 +628,7 @@ async function pageAdvisor() {
   if (CHAT.pid !== S.pid) { CHAT.pid = S.pid; CHAT.msgs = []; }
   const { facts: f } = await loadFacts(S.pid);
   const starters = ["Why do I score this?", "What should I improve first?", "What if I install a heat pump?", "What if I add solar panels too?", "How much energy and carbon could I save?", "Could it raise my home's value?"];
-  return `${pageHead("AI energy advisor", `Ask anything about <b>${esc(S.pid)}</b>. Numbers are computed by the engine and checked before you see them — the model never invents figures.`)}
+  return `${pageHead("AI Advisor", `Ask anything about <b>${esc(S.pid)}</b>. Numbers are computed by the engine and checked before you see them — the model never invents figures.`)}
     <div class="chat" id="chat">
       ${CHAT.msgs.length ? CHAT.msgs.map(renderMsg).join("") : `<div class="card"><h3>Start the conversation</h3><div class="card-sub">Pick a question, or type your own below. A what-if re-runs the full calculation first, then explains it.</div>
         <div class="starter-chips">${starters.map((q) => `<button class="chip" data-ask="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`}
@@ -628,7 +684,7 @@ async function answerQuestion(q) {
       role: "ai", by: ex?.mode === "llm" ? "Claude model" : "checked template", checked: true,
       paras: (ex?.sentences || []).map((s) => s.text),
       facts: facts.length ? facts : null,
-      links: [{ to: "plans", label: "Compare this plan" }, { to: "energy", label: "Energy & carbon detail" }],
+      links: [{ to: "plans", label: "Compare options" }, { to: "improvements", label: "Energy & carbon detail" }],
     };
   }
   // not a what-if — answer from the computed facts deterministically + show the gated score narration
@@ -662,7 +718,20 @@ async function answerQuestion(q) {
 async function pageImprovements() {
   const { facts: f } = await loadFacts(S.pid);
   const plan = f.plan || [], excluded = f.excluded || [];
-  return `${pageHead("Improvements", `A prioritised list of feasible retrofits for <b>${esc(S.pid)}</b> — ordered so each one is sized for the home the earlier steps leave behind. Savings are estimates, not guarantees.`)}
+  const pkg = f.package, im = pkg?.impact;
+  const savePounds = im ? poundsPerYear(im.electricity.saving_kwh, im.gas.saving_kwh) : 0;
+  return `${pageHead("Recommended Upgrades", `A prioritised list of feasible upgrades for <b>${esc(S.pid)}</b> — ordered so each one is sized for the home the earlier steps leave behind. Savings are estimates, not guarantees.`)}
+
+  ${pkg ? `<div class="card pad-lg" style="margin-bottom:18px"><div class="section-eyebrow">If you do the whole recommended package</div>
+    <div class="grid cols-4" style="gap:14px">
+      <div class="stat"><span class="k">Score</span><span class="v sm">${f.score?.score ?? "—"} → <b>${pkg.score_after}</b></span><span class="foot">${esc(f.score?.band || "")} → ${esc(pkg.band_after || "")}</span></div>
+      <div class="stat"><span class="k">Purchased energy</span><span class="v sm delta good">−${pct(pkg.improvement_potential?.pct)}</span><span class="foot">${rc(kwh(im.net_saving_kwh), im.carbon?.receipt)} less/yr</span></div>
+      <div class="stat"><span class="k">Carbon</span><span class="v sm delta good">−${fmt(im.carbon?.total_tonnes, 2)} t</span><span class="foot">CO₂e/yr${carbonEquiv(im.carbon?.total_tonnes) ? " · " + esc(carbonEquiv(im.carbon.total_tonnes)) : ""}</span></div>
+      <div class="stat"><span class="k">Bill saving</span><span class="v sm">${savePounds > 0 ? gbp(savePounds) + "/yr" : "—"}</span><span class="foot">indicative, at the Ofgem cap</span></div>
+    </div>
+    <div class="readout warn" style="margin-top:4px">${savePounds > 0 ? `Every year you wait is about ${gbp(savePounds)} and ${fmt(im.carbon?.total_tonnes, 2)} t CO₂ not saved.` : ""}</div>
+  </div>` : ""}
+
   ${plan.length ? plan.map((p, i) => `<div class="card" style="margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
       <div><div class="small muted">Step ${p.order} · ${esc(p.stage_label || "")}</div><h3>${esc(p.name)}</h3></div>
@@ -682,10 +751,18 @@ async function pageImprovements() {
     ${excluded.map((e) => `<li><span class="tag ${e.status === "completed" || e.status === "not_needed" ? "measured" : "assumed"}">${esc((e.status || "").replace(/_/g, " "))}</span><b>${esc(e.name)}</b><span class="muted small" style="flex:1">${esc(e.reason || "")}</span></li>`).join("")}
   </ul></div></div>` : ""}
 
-  <div class="section">${aiCard(S.pid, "package", "Why these improvements, in this order")}</div>`;
+  <div class="section">${aiCard(S.pid, "package", "Why these improvements, in this order")}</div>
+
+  <div class="section"><h2>Energy &amp; carbon impact</h2>
+    <div class="card-sub" style="margin-bottom:12px">Electricity and gas tracked separately, baseline vs the recommended package, with the carbon that follows. A heat pump can raise electricity while cutting gas — shown honestly.</div>
+    ${energySection(f)}</div>
+
+  <div class="section"><h2>Indicative property value</h2>
+    <div class="card-sub" style="margin-bottom:12px">A range from historical EPC-band / sale-price relationships in our dataset — explicitly not a valuation, a guarantee, or proof that retrofitting causes a price rise.</div>
+    ${valueSection(f)}</div>`;
 }
 
-// ── Compare plans (Decision Lab) ───────────────────────────
+// ── Compare Options (Decision Lab) ───────────────────────────
 const PLAN = { picked: new Set(), budget: 15000 };
 async function pagePlans() {
   const lab = await api(`/api/properties/${encodeURIComponent(S.pid)}/lab?budget=${PLAN.budget}&objective=${S.objective}`);
@@ -695,7 +772,7 @@ async function pagePlans() {
   (await loadFacts(S.pid)).facts.plan.forEach((p) => (measureName[p.measure_id] = p.name));
   if (!PLAN.picked.size && lab.base_package) lab.base_package.forEach((m) => PLAN.picked.add(m));
 
-  return `${pageHead("Compare plans", `Build a plan for <b>${esc(S.pid)}</b> and see it re-calculated by the engine — per fuel, carbon, and indicative value. Savings are never simply added; interactions are accounted for.`)}
+  return `${pageHead("Compare Options", `Build and compare retrofit packages for <b>${esc(S.pid)}</b>, each re-calculated by the engine — per fuel, carbon, and indicative value. Savings are never simply added; interactions are accounted for.`)}
   <div class="card">
     <h3>Named plans</h3><div class="card-sub">Each is a real package the engine re-ran. Prioritising: <b>${esc(OBJ_NAME[S.objective])}</b>.</div>
     <div class="plan-grid" id="plan-grid">
@@ -760,13 +837,11 @@ async function recomputeCustom() {
   } catch (e) { box.innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
 }
 
-// ── Energy & carbon ────────────────────────────────────────
-async function pageEnergy() {
-  const { facts: f } = await loadFacts(S.pid);
+// ── Energy & carbon (a section, folded into Recommended Upgrades) ──
+function energySection(f) {
   const im = f.package?.impact, car = im?.carbon;
   const ef = car?.receipt?.inputs || {};
-  return `${pageHead("Energy & carbon", `Electricity and gas tracked separately, baseline vs the recommended plan, with the carbon that follows. A heat pump can raise electricity while cutting gas — shown honestly.`)}
-  <div class="grid cols-2">
+  return `<div class="grid cols-2">
     <div class="card"><h3>Energy purchased per fuel</h3><div class="card-sub">Baseline ${tag(f.baseline_basis)} → after the recommended package (estimate).</div>
       ${im ? fuelBlock("Gas", "var(--gas)", im.gas) + fuelBlock("Electricity", "var(--elec)", im.electricity) : `<p class="muted">No package to model.</p>`}
       ${im ? `<div class="note" style="margin-top:12px">Net purchased energy: <b>${kwh((im.electricity.baseline_kwh) + (im.gas.baseline_kwh))}</b> → <b>${kwh((im.electricity.after_kwh) + (im.gas.after_kwh))}</b> — a saving of ${rc(kwh(im.net_saving_kwh), car?.receipt)}/yr. Same accounting both sides; solar cuts imports, not demand.</div>` : ""}
@@ -787,17 +862,13 @@ async function pageEnergy() {
       <div><div class="section-eyebrow" style="margin-bottom:2px">Now</div>${sankey(f.baseline_flows, "Energy flows, baseline")}</div>
       ${f.package?.flows_after?.length ? `<div><div class="section-eyebrow" style="margin-bottom:2px">After the recommended plan</div>${sankey(f.package.flows_after, "Energy flows after retrofit")}</div>` : ""}
     </div>
-  </div></div>
-
-  <div class="section">${aiCard(S.pid, "package", "What these savings mean")}</div>`;
+  </div></div>`;
 }
 
-// ── Home value ─────────────────────────────────────────────
-async function pageValue() {
-  const { facts: f } = await loadFacts(S.pid);
+// ── Home value (a section, folded into Recommended Upgrades) ──
+function valueSection(f) {
   const v = f.value;
-  return `${pageHead("Home value", "An indicative range from historical EPC-band / sale-price relationships in our dataset — explicitly not a valuation, a guarantee, or proof that retrofitting causes a price rise.")}
-  <div class="grid cols-2">
+  return `<div class="grid cols-2">
     <div class="card"><h3>Current estimate</h3><div class="card-sub">Today's indicative value (the baseline the uplift is measured against).</div>
       <div class="stat"><span class="v">${rc(gbp(v.current_value), v.receipt)}</span><span class="foot">80% range ${gbp(v.current_range?.[0])} – ${gbp(v.current_range?.[1])} ${tag("estimated")}</span></div>
       <div class="note small" style="margin-top:12px">This is a current-value estimate, kept separate from any historical sale prices.</div>
@@ -811,19 +882,30 @@ async function pageValue() {
         : `<div class="card-sub">Indicative uplift</div>${stateView("—", "No indicative uplift", v.reason || "The EPC band doesn't change under the recommended plan, so no value uplift is modelled.")}`}
     </div>
   </div>
-  <div class="callout info" style="margin-top:16px">${esc(v.caveat)}</div>
-  <div class="section">${aiCard(S.pid, "package", "How to read this estimate")}</div>`;
+  <div class="callout info" style="margin-top:16px">${esc(v.caveat)}</div>`;
 }
 
-// ── Evidence & reports ─────────────────────────────────────
-async function pageEvidence() {
+// ── Methods & Evidence (merge of Evidence + Help) ──
+async function pageMethods() {
   const ev = await api("/api/evidence");
   const m = ev.metrics || {};
   const labels = ev.score.labels || {};
   const factors = ev.emission_factors?.factors || {};
   const assumptions = Array.isArray(ev.assumptions?.items) ? ev.assumptions.items : [];
   const mScalars = Object.entries(m).filter(([, v]) => typeof v !== "object" && v != null);
-  return `${pageHead("Evidence & reports", "Every number on this app traces to a documented method, factor, or model. This page is the index.")}
+  const psImpact = (i) => i && typeof i === "object" ? `${i.low_pct}–${i.high_pct}% of ${esc(i.quantity)}` : "—";
+  return `${pageHead("Methods & Evidence", "How GreenIQ works, and the receipt behind every number. Nothing here is hand-typed — it reads the engine's own configuration.")}
+
+  <div class="note law" style="margin-bottom:16px"><b>The one law.</b> Code computes every number. AI only explains. Every underlined number opens a receipt.</div>
+  <div class="section-eyebrow">How it works</div>
+  <div class="grid cols-2" style="margin-bottom:8px">
+    <div class="card"><h3>How a home is scored</h3><p class="small">A weighted sum of seven sub-scores (PS2-fixed weights), each 0–100, each monotonic — a better state never lowers a sub-score. Energy efficiency uses the recorded EPC rating; intensity uses annualised metered kWh/m². Rounded to the nearest integer, then classified into five bands.</p></div>
+    <div class="card"><h3>Savings, carbon, value</h3><p class="small">Savings are per fuel (electricity and gas separately), with interactions accounted for — never a simple sum. Carbon is ΔC = Σ ΔEⱼ × EFⱼ with DESNZ 2025 factors. Value is an indicative range from historical EPC/price relationships, explicitly non-causal.</p></div>
+    <div class="card"><h3>The AI advisor</h3><p class="small">For a what-if, the engine re-runs the whole calculation first; only then does the model explain the new numbers. A grounding gate blocks any sentence containing a number or claim the engine didn't produce, and shows a checked template instead. It runs fully with no AI key.</p></div>
+    <div class="card"><h3>Reading the labels</h3><div class="btn-row" style="margin-top:4px">${tag("measured")} measured · ${tag("estimated")} model estimate · ${tag("assumed")} assumed from age/type · ${tag("unavailable")} not available · <span class="tag real">real data</span> verified public dataset</div></div>
+  </div>
+
+  <div class="section-eyebrow" style="margin-top:20px">Evidence &amp; sources</div>
   <div class="grid cols-2">
     <div class="card"><h3>Green Home Score weights</h3>
       <table class="data"><tbody>
@@ -841,7 +923,7 @@ async function pageEvidence() {
   </div>
   <div class="section"><div class="card"><h3>Retrofit catalogue</h3><div class="card-sub">${esc(ev.price_basis || "")} ${esc(ev.impact_note || "")}</div>
     <table class="data"><thead><tr><th>Measure</th><th class="num">Stage</th><th class="num">Cost basis</th><th>Cost source</th><th>PS2 illustrative</th></tr></thead><tbody>
-      ${Object.entries(ev.measures).map(([k, v]) => `<tr><td>${esc(v.name)}</td><td class="num">${esc(v.stage)}</td><td class="num small">${v.cost ? `${gbp(v.cost.low)}–${gbp(v.cost.high)} /${esc(v.cost.basis || "unit")}` : "—"}</td><td class="small muted">${esc((v.cost_source || "").slice(0, 44))}</td><td class="small">${esc(v.ps2_illustrative_impact || "—")}</td></tr>`).join("")}
+      ${Object.entries(ev.measures).map(([k, v]) => `<tr><td>${esc(v.name)}</td><td class="num">${esc(v.stage)}</td><td class="num small">${v.cost ? `${gbp(v.cost.low)}–${gbp(v.cost.high)} /${esc(v.cost.basis || "unit")}` : "—"}</td><td class="small muted">${esc((v.cost_source || "").slice(0, 44))}</td><td class="small">${psImpact(v.ps2_illustrative_impact)}</td></tr>`).join("")}
     </tbody></table>
   </div></div>
   <div class="section"><div class="grid cols-2">
@@ -872,22 +954,7 @@ async function pageSettings() {
   </div>`;
 }
 
-// ── Help & methodology ─────────────────────────────────────
-async function pageHelp() {
-  return `${pageHead("Help & methodology", "How GreenIQ works, and the one rule it never breaks.")}
-  <div class="note law" style="margin-bottom:16px"><b>The one law.</b> Code computes every number. AI only explains. Every number has a receipt you can open by clicking it.</div>
-  <div class="grid cols-2">
-    <div class="card"><h3>How a home is scored</h3><p class="small">A weighted sum of seven sub-scores (PS2-fixed weights), each 0–100, each monotonic — a better state never lowers a sub-score. Energy efficiency uses the recorded EPC rating; intensity uses annualised metered kWh/m². Rounded to the nearest integer, then classified into five bands.</p></div>
-    <div class="card"><h3>Savings, carbon, value</h3><p class="small">Savings are per fuel (electricity and gas separately), with interactions accounted for — never a simple sum. Carbon is ΔC = Σ ΔEⱼ × EFⱼ with DESNZ 2025 factors. Value is an indicative range from historical EPC/price relationships, explicitly non-causal.</p></div>
-    <div class="card"><h3>The AI advisor</h3><p class="small">For a what-if, the engine re-runs the whole calculation first; only then does the model explain the new numbers. A grounding gate blocks any sentence containing a number or claim the engine didn't produce, and shows a checked template instead. It runs fully with no AI key.</p></div>
-    <div class="card"><h3>Honesty by design</h3><p class="small">Estimates are labelled. Value is a range. “Insufficient information” is a valid answer. Detailed homes are synthetic; real benchmarks carry a <span class="tag real">real data</span> badge.</p></div>
-  </div>
-  <div class="section"><div class="card"><h3>Reading the labels</h3><div class="btn-row">
-    <span>${tag("measured")} measured input</span><span>${tag("estimated")} model estimate</span><span>${tag("assumed")} assumed from age/type</span><span>${tag("unavailable")} not available</span>
-  </div></div></div>`;
-}
-
-// ── Lender workspace (portfolio) ───────────────────────────
+// ── Ranking (portfolio) ───────────────────────────
 async function pageLender() {
   const p = await api("/api/portfolio");
   const k = p.kpis;
@@ -896,7 +963,7 @@ async function pageLender() {
   const classified = ["Very poor", "Poor", "Moderate", "Good", "Highly efficient"].reduce((a, b) => a + (dist[b] || 0), 0);
   const undetermined = dist.Undetermined || 0;
   const def = (t) => `class="k kpi-def" title="${esc(t)}"`;
-  return `${pageHead("Lender workspace — portfolio", `${fmt(p.n_homes)} homes · ${esc(p.data_label)}. The same engine and contracts as the homeowner view. Hover any metric for its exact definition.`)}
+  return `${pageHead("Ranking", `${fmt(p.n_homes)} homes · ${esc(p.data_label)}. The same engine and contracts as the single-home view. Hover any metric for its exact definition.`)}
   <div class="kpi-row">
     <div class="card"><div class="stat"><span ${def(`Mean of the point Green Home Score. Denominator: the ${fmt(k.avg_score?.n)} homes that have a point score; ${fmt(k.avg_score?.excluded)} homes with only a score range are excluded. Modelled, current state (no retrofits).`)}>Average score</span><span class="v">${fmt(k.avg_score?.value, 1)}</span><span class="foot">of ${fmt(k.avg_score?.n)} scored homes</span></div></div>
     <div class="card"><div class="stat"><span ${def(`Share flagged poor energy efficiency (Poor/Very poor, or a partial-score home the detector still flags). Numerator ${fmt(k.poor_pct?.count)}, denominator ${fmt(k.poor_pct?.n)} homes where the flag is determinable. Modelled, current state.`)}>Poor / very poor</span><span class="v">${pct(k.poor_pct?.value)}</span><span class="foot">${fmt(k.poor_pct?.count)} of ${fmt(k.poor_pct?.n)} homes</span></div></div>
@@ -915,6 +982,18 @@ async function pageLender() {
       (a few partial-score homes are banded because their range sits entirely in one band, yet are excluded from the average);
       and <b>poor/very poor</b> counts ${fmt(k.poor_pct?.count)} because the efficiency detector also flags some partial-score homes that have no final band.
       Every home is accounted for: ${fmt(classified)} classified + ${fmt(undetermined)} undetermined = ${fmt(p.n_homes)}.</div>
+  </div></div>
+
+  <div class="section"><div class="card"><h3>Green Home Grid</h3>
+    <div class="card-sub">Every home is one tile, coloured by its score band. Synthetic demonstration portfolio — tiles are records, not map locations. Click a tile to open that home.</div>
+    <div class="ghg-toolbar">
+      <input class="inp sm" id="ghg-search" placeholder="Search id…" style="width:130px">
+      <select class="inp sm" id="ghg-band"><option value="">All bands</option>${["Very poor", "Poor", "Moderate", "Good", "Highly efficient"].map((b) => `<option value="${b}">${b}</option>`).join("")}</select>
+      <select class="inp sm" id="ghg-sort"><option value="score">Sort: score ↑</option><option value="potential">Sort: potential ↓</option><option value="id">Sort: id</option></select>
+      <span class="muted small" id="ghg-count"></span>
+    </div>
+    <div class="ghg" id="ghg"><div class="loading"><span class="spinner"></span> Loading homes…</div></div>
+    <div class="ghg-legend">${["Very poor", "Poor", "Moderate", "Good", "Highly efficient"].map((b) => `<span><i style="background:${bandCol(b)}"></i>${b}</span>`).join("")}</div>
   </div></div>
 
   <div class="section"><div class="card"><h3>Highest improvement potential</h3><div class="card-sub">Ranked by % reduction in purchased energy from the feasible package (PS2 §3). Click a home to open it.</div>
@@ -937,7 +1016,28 @@ async function fillRanking() {
       <td class="num">${r.score ?? "—"}</td><td class="num">${pct(r.potential_pct)}</td>
       <td class="num">${r.value_status === "available" && r.value_uplift_pct_high ? pctRange(r.value_uplift_pct_low, r.value_uplift_pct_high) : "—"}</td></tr>`).join("") || `<tr><td colspan="6" class="muted">No ranked homes.</td></tr>`;
     $$("#rank-body [data-pick]").forEach((el) => el.onclick = () => selectHome(el.dataset.pick));
+    return;
   } catch (e) { body.innerHTML = `<tr><td colspan="6"><div class="errbox">${esc(e.message)}</div></td></tr>`; }
+}
+const GHG = { q: "", band: "", sort: "score" };
+async function fillGrid() {
+  const box = $("#ghg"); if (!box) return;
+  try {
+    const props = await getProps();
+    const draw = () => {
+      let rows = props.filter((p) => (!GHG.band || p.band === GHG.band) && (!GHG.q || p.property_id.toLowerCase().includes(GHG.q.toLowerCase())));
+      rows.sort((a, b) => GHG.sort === "id" ? a.property_id.localeCompare(b.property_id) : GHG.sort === "potential" ? (b.potential_pct || 0) - (a.potential_pct || 0) : (a.score ?? 999) - (b.score ?? 999));
+      if ($("#ghg-count")) $("#ghg-count").textContent = `${rows.length} homes`;
+      box.innerHTML = rows.slice(0, 400).map((p) => `<div class="ghg-tile ${p.is_poor ? "poor-flag" : ""}" data-pick="${p.property_id}" style="--bc:${bandCol(p.band)}" title="${esc(p.property_id)} · ${esc(p.band || "Undetermined")} · ${esc(p.property_type || "")}">
+        <div class="ghg-score">${p.score ?? "–"}</div><div class="ghg-id">${esc(p.property_id)}</div>
+        <div class="ghg-meta">${esc(p.property_type || "")} · ${fmt(p.floor_area_m2)}m²</div></div>`).join("") || `<p class="muted">No homes match.</p>`;
+      $$("#ghg [data-pick]").forEach((el) => el.onclick = () => selectHome(el.dataset.pick));
+    };
+    draw();
+    if ($("#ghg-search")) $("#ghg-search").oninput = (e) => { GHG.q = e.target.value; draw(); };
+    if ($("#ghg-band")) $("#ghg-band").onchange = (e) => { GHG.band = e.target.value; draw(); };
+    if ($("#ghg-sort")) $("#ghg-sort").onchange = (e) => { GHG.sort = e.target.value; draw(); };
+  } catch (e) { box.innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
 }
 async function fillGroups(by = "region") {
   const box = $("#group-table"); if (!box) return;
