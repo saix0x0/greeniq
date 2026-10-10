@@ -7,14 +7,23 @@ you can trust and explanations you can check.
 
 ![GreenIQ system at a glance](docs/assets/greeniq-system.svg)
 
-> **Status:** architecture **finalised**, ready for the one-pass build. This repository
-> holds the plan, the rules, the system design and the **definitive implementation spec**
-> ([`docs/11_IMPLEMENTATION_SPEC.md`](docs/11_IMPLEMENTATION_SPEC.md)). The application
-> is built from it by following [`START_HERE_PROMPT.md`](START_HERE_PROMPT.md).
+## Run it (one command, no API key)
+
+```bash
+uv run python -m greeniq serve      # → http://127.0.0.1:8000  (dashboard + API on one port)
+```
+
+First start analyses all 3,000 homes once and caches them in `var/` (~10 s); later starts take ~3 s.
+Other commands: `uv run python -m greeniq analyse P00007` (one home, incl. its Next Best Action) ·
+`uv run pytest` · `uv run python -m greeniq evaluate`. Build progress: [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md).
+
+> **Status:** engine, ML, evaluation, Next Best Action, API and core dashboard are built and tested
+> (see the build journal). Decision Lab and grounded AI are next.
 >
-> **Data:** real property and energy data from the DESNZ *National Energy Efficiency
-> Data-Framework* (NEED) anonymised 2026 sample, plus documented synthetic augmentation.
-> Contains public sector information licensed under the Open Government Licence v3.0.
+> **Data:** the running app uses a documented **synthetic** world (simulated homes, meters and
+> sales with hidden truth the engines never see; [`data/DATA_CARD.md`](data/DATA_CARD.md)).
+> [`dataset.md`](dataset.md) records the DESNZ NEED anonymised sample (Open Government Licence v3.0)
+> as the real-data reference.
 
 > **Prototype implementation:** a working deterministic Python prototype now lives in
 > [`greenpath_home/`](greenpath_home/). It uses generated sample data and includes

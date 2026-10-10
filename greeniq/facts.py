@@ -88,6 +88,7 @@ class PackageResult(BaseModel):
     epc_band_after: str | None
     cost_low: int
     cost_high: int
+    components_after: dict[str, float | None] = Field(default_factory=dict)  # score contribution per component
     receipt: Receipt
 
 
@@ -172,6 +173,7 @@ class ComputedFacts(BaseModel):
     baseline: dict[str, BaselineEnergy]
     baseline_basis: Literal["metered", "estimated", "unavailable"]
     intensity_kwh_m2: Resolved
+    baseline_emissions_kg: Resolved = Field(default_factory=lambda: Resolved(basis="missing"))
     sap: Resolved
     epc_band: str | None
     score: ScoreResult

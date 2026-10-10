@@ -4,6 +4,7 @@
     train      fit models on train, tune and promote on validation (test untouched)
     evaluate   score the held-out test split once and write reports/
     analyse    analyse one home and print the score, plan and package
+    serve      run the API + dashboard on one port (http://127.0.0.1:8000)
 """
 
 from __future__ import annotations
@@ -89,6 +90,14 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    import uvicorn
+
+    print(f"GreenIQ on http://{args.host}:{args.port}  (first start analyses every home and caches it in var/)")
+    uvicorn.run("greeniq.api:app", host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="greeniq", description="GreenIQ: Green Home Score & Retrofit Engine")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -108,6 +117,11 @@ def main(argv: list[str] | None = None) -> int:
     a.add_argument("property_id")
     a.add_argument("--json", action="store_true", help="print the full ComputedFacts JSON")
     a.set_defaults(func=cmd_analyse)
+
+    sv = sub.add_parser("serve", help="run the API and dashboard on one port")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8000)
+    sv.set_defaults(func=cmd_serve)
 
     args = parser.parse_args(argv)
     return args.func(args)

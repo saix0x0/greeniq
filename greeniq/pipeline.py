@@ -21,7 +21,7 @@ from .config import score_mappings as SM
 from .contract import CONTRACT_VERSION, FUELS, Property, Receipt, Resolved
 from .data import AS_OF, Weather, annualise_property
 from .engines import physics, rating
-from .engines.carbon import CARBON_VERSION, carbon_reduction
+from .engines.carbon import CARBON_VERSION, carbon_reduction, emissions_kg
 from .engines.catalogue import catalogue, emission_factors, measure, stage_label
 from .engines.energy import ENERGY_VERSION, EnergyState, apply_measure, boiler_efficiency, decompose, physics_estimate
 from .engines.nba import DEFAULT_OBJECTIVE, NBA_VERSION, select_next_best_action
@@ -233,6 +233,14 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
                              basis="observed" if baseline_basis == "metered" else "estimated",
                              note="metered, weather-normalised" if baseline_basis == "metered" else "model-estimated baseline")
 
+    # 7b. annual emissions of purchased energy (PS2 factors), labelled like the baseline
+    if e_base is None:
+        emissions = Resolved(basis="missing", note="annual energy unavailable")
+    else:
+        kg = emissions_kg(baseline["electricity"].annual_kwh, baseline["gas"].annual_kwh)
+        emissions = Resolved(value=round(kg, 0), basis="observed" if baseline_basis == "metered" else "estimated",
+                             note="baseline kWh per fuel × DESNZ 2025 factors (kg CO2e/yr)")
+
     # 8. score
     score = compute_score({**inp, "sap_score": sap, "intensity_kwh_m2": intensity})
 
@@ -308,7 +316,7 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
     facts = ComputedFacts(
         facts_id=fid, property_id=p.property_id, as_of=ctx.as_of, versions=versions,
         property_summary=_summary(p, inp), inputs=inp, baseline=baseline, baseline_basis=baseline_basis,
-        intensity_kwh_m2=intensity, sap=sap, epc_band=sap_to_band(sap.value) if sap.known else None, score=score,
+        intensity_kwh_m2=intensity, baseline_emissions_kg=emissions, sap=sap, epc_band=sap_to_band(sap.value) if sap.known else None, score=score,
         conflicts=conflicts, questions=questions, confidence=confidence, plan=plan, excluded=excluded,
         package=package, value=value, scenario=scenario_info, providers_used=providers, warnings=warnings,
     )
@@ -433,6 +441,7 @@ def _package(p, inp, ctx, scenario, ordered, excluded, base_state, base_p, stand
         epc_band_before=sap_to_band(sap.value) if sap.known else None,
         epc_band_after=sap_to_band(sap_after) if sap_after is not None else None,
         cost_low=sum(c[0] for c in costs), cost_high=sum(c[1] for c in costs),
+        components_after={c.key: c.contribution for c in score_after.components},
         receipt=Receipt(output="package", value=impact.net_saving_kwh, unit="kWh/yr net purchased saving",
                         inputs={"measures": chosen, "order": order},
                         method="Measures applied in sequence to one evolving state (not a sum of standalone savings)",
