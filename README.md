@@ -11,6 +11,11 @@ you can trust and explanations you can check.
 > holds the **plan, the rules, and the system design**. The application is built on top
 > of it by following [`START_HERE_PROMPT.md`](START_HERE_PROMPT.md).
 
+> **Prototype implementation:** a working deterministic Python prototype now lives in
+> [`greenpath_home/`](greenpath_home/). It uses generated sample data and includes
+> scoring, poor-home ranking, retrofit recommendations, energy savings, carbon
+> reduction, indicative property-value impact, docs, and tests.
+
 ---
 
 ## The one law

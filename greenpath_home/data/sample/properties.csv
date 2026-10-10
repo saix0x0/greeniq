@@ -1,0 +1,5 @@
+property_id,property_type,age_band,floor_area_m2,bedrooms,energy_rating,heating,insulation,glazing,solar,smart_controls,region,current_value_gbp
+P10001,terraced,pre_1930,82,3,E,gas_boiler,poor,single,false,false,London,350000
+P10002,semi-detached,1980_1999,110,4,C,modern_gas_boiler,good,double,true,true,North West,285000
+P10003,flat,post_2012,62,2,B,district_heating,excellent,triple,false,true,South East,310000
+P10004,detached,1930_1949,165,5,F,oil_boiler,none,single,false,false,South West,520000
