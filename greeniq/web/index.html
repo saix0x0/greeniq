@@ -3,46 +3,66 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>GreenIQ — Green Home Score</title>
+  <title>GreenIQ — Home energy command centre</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%231f7a4d'/%3E%3Ctext x='16' y='22' font-size='17' font-family='system-ui' font-weight='700' text-anchor='middle' fill='white'%3EG%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <a class="brand" href="#/" title="Start again">
+  <div class="shell">
+    <!-- Persistent left sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#/overview">
         <span class="brand-mark">G</span>
-        <span><strong>GreenIQ</strong><small>Green Home Score · every number shows how it was worked out</small></span>
+        <span class="brand-text"><strong>GreenIQ</strong><small>Home energy command centre</small></span>
       </a>
-      <nav class="seg" aria-label="View">
-        <a data-nav="home" href="#/home">One home</a>
-        <a data-nav="homes" href="#/homes">Many homes</a>
-      </nav>
-      <form class="find" id="find" role="search">
-        <input id="find-q" placeholder="Home reference" autocomplete="off" aria-label="Home reference">
-        <button class="nav-btn primary" type="submit">Open</button>
-      </form>
-      <nav class="topbar-actions">
-        <a class="nav-btn" data-nav="how" href="#/how">How it works</a>
-        <button class="nav-btn icon" id="menu-btn" aria-haspopup="true" aria-expanded="false" title="Settings">⚙</button>
-        <div class="menu" id="menu" hidden>
-          <label class="menu-row"><span><b>Show evidence labels</b><small>Write “measured”, “estimate”, “assumed” next to numbers instead of a coloured dot.</small></span>
-            <button class="switch" id="src-switch" role="switch" aria-checked="false" aria-label="Show evidence labels"></button></label>
-          <label class="menu-row col"><b>“Do this first” should favour</b>
-            <select class="inp" id="obj">
-              <option value="value_for_money">Value for money (carbon saved per £)</option>
+
+      <div class="prop-switch" id="prop-switch">
+        <button class="prop-btn" id="prop-btn" aria-haspopup="listbox" aria-expanded="false">
+          <span class="prop-dot" id="prop-dot"></span>
+          <span class="prop-label" id="prop-label">Choose a home…</span>
+          <span class="prop-caret">⌄</span>
+        </button>
+        <div class="prop-pop" id="prop-pop" hidden></div>
+      </div>
+
+      <nav class="nav" id="nav" aria-label="Your home"></nav>
+
+      <div class="sidebar-foot">
+        <small id="data-status" class="data-status">—</small>
+      </div>
+    </aside>
+
+    <!-- Main column -->
+    <div class="main-col">
+      <header class="topbar">
+        <button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Menu">☰</button>
+        <div class="crumb" id="crumb"></div>
+        <div class="topbar-right">
+          <span class="llm-pill" id="llm-pill" title="AI provider">AI: —</span>
+          <label class="obj-pick">
+            <span class="muted small">Prioritise</span>
+            <select class="inp sm" id="obj">
+              <option value="value_for_money">Value for money</option>
               <option value="carbon">Most carbon saved</option>
               <option value="energy">Most energy saved</option>
-            </select></label>
-          <label class="menu-row col"><b>Theme</b>
-            <select class="inp" id="theme"><option value="system">Match my device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+            </select>
+          </label>
+          <button class="icon-btn" id="label-toggle" title="Toggle evidence labels" aria-pressed="false">🏷</button>
+          <button class="icon-btn" id="theme-toggle" title="Theme">◐</button>
         </div>
-      </nav>
-    </header>
-    <main id="main"></main>
+      </header>
+
+      <main id="main" tabindex="-1"></main>
+    </div>
   </div>
-  <div class="tip" id="tip" role="tooltip"></div>
-  <aside class="drawer" id="drawer" aria-label="How this number was worked out"></aside>
+
+  <aside class="drawer" id="drawer" aria-label="How this number was worked out" hidden></aside>
+  <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+
   <script type="module" src="/static/app.js"></script>
 </body>
 </html>

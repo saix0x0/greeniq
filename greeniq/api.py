@@ -254,6 +254,19 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
 
     app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
+    # Shareable submission artifacts (read-only). Only docs/ and reports/ are exposed —
+    # never data/truth/ or models/ — so the Evidence page can link to real methodology files.
+    from .data import ROOT as _ROOT
+    for _name in ("docs", "reports"):
+        _dir = _ROOT / _name
+        if _dir.is_dir():
+            app.mount(f"/{_name}", StaticFiles(directory=_dir), name=_name)
+
+    @app.get("/data/DATA_CARD.md")
+    def data_card():
+        p = _ROOT / "data" / "DATA_CARD.md"
+        return FileResponse(p) if p.exists() else _error(404, "not_found", "Data card not found.")
+
     @app.get("/")
     def index():
         return FileResponse(WEB_DIR / "index.html")

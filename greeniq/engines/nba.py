@@ -211,7 +211,7 @@ def select_next_best_action(f: ComputedFacts, objective: str = DEFAULT_OBJECTIVE
                                      text=f"Already in place: {', '.join(not_needed)}."))
         if f.plan and not zero_use:
             reasons.append(NBAReason(code="small_benefit", fact_ref="plan",
-                                     text=f"No remaining feasible measure saves more than {assumption("nba.min_carbon_kg"):.0f} kg CO2e a year."))
+                                     text=f"No remaining feasible measure saves more than {assumption('nba.min_carbon_kg'):.0f} kg CO2e a year."))
         return NextBestAction(
             action=NBAAction(kind="no_action", label="No action needed now"), disposition="no_action",
             headline="Nothing worth doing right now." if not zero_use
