@@ -113,6 +113,13 @@ def cmd_edge_sweep(args) -> int:
     return 0 if not o["violations"] else 1
 
 
+def cmd_real_evidence(args) -> int:
+    from .real.evidence import run
+
+    run()
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -149,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
     es = sub.add_parser("edge-sweep", help="run every PS2 scenario invariant over all homes → reports/EDGE_CASES.md")
     es.add_argument("--lab-every", type=int, default=15, help="also run the Decision Lab on every Nth home")
     es.set_defaults(func=cmd_edge_sweep)
+
+    re_ = sub.add_parser("real-evidence", help="real NEED data: energy model on real homes + real retrofit savings")
+    re_.set_defaults(func=cmd_real_evidence)
 
     sv = sub.add_parser("serve", help="run the API and dashboard on one port")
     sv.add_argument("--host", default="127.0.0.1")

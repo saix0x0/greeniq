@@ -109,6 +109,19 @@ Times are build time for one Claude Code session; model runs and evaluations are
 marks (real evidence for the 20% ML criterion). R5 is the most work and can be cut to a smaller
 sample if time is short.
 
+## 6b. Progress on the plan (live)
+
+| Step | Status | Result |
+|---|---|---|
+| R1 Load NEED | ✅ done | 50,000 real homes; checksum verified; codes decoded from the official metadata; only flag V used (O/E/L/G/blank = missing, never zero); split 35,197 / 7,311 / 7,492 |
+| R2 Real energy model | ✅ done, honest result | On 6,774 real test homes, gradient boosting does **not** beat the "similar homes" median for electricity (MAE 1,640 vs 1,601 kWh). For gas it is slightly better (3,857 vs 3,979 kWh). R² 0.16 / 0.35. Characteristics explain little of real use; behaviour dominates. So the product anchors on each home's own meters, and the promotion rule keeps the simple baseline where the model doesn't win. |
+| R3 Real savings evidence | ✅ done | Loft **5.6%** of gas (90% CI 5.2–6.1, 4,452 homes) · cavity wall **11.1%** of gas (10.5–11.6, 3,725 homes) · solar **9.8%** of grid electricity (5.2–12.2, 381 homes). Our engine predicts 6.4% / 22.1% / 26.2%, so real-world realisation is 0.88 / 0.50 / 0.37: a performance gap, now measured. |
+| R4 Peers + evidence in the product | ✅ done | "Homes like yours" card on every metered home (vs real NEED homes of the same type, size and age, with percentile); low-use signal; "real data" evidence line on loft, cavity and solar recommendations |
+| R5 Real-backed demo homes | ⬜ next | — |
+| R6 LLM pass rate | 🔄 running | Gate false positive fixed (signed numbers); prompt v1.1 gives direction words ("RISES by …"); validation re-run in progress |
+| R7 Re-run and document | ⬜ | — |
+| R8 Final pass | ⬜ | — |
+
 ## 7. Decisions for the team
 
 1. Commit the 15 MB NEED CSV to the repo (OGL allows it, reproducible offline), or download it on

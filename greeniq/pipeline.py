@@ -322,6 +322,15 @@ def analyse_home(p: Property, ctx: EngineContext, scenario: Scenario | None = No
         package=package, value=value, scenario=scenario_info, providers_used=providers, warnings=warnings,
     )
     # 13. next best action: a selector over the finished facts (computes no new numbers)
+    # Real-data context (DESNZ NEED): homes like this one, and observed effects of real installs.
+    from .real.benchmarks import compare, evidence_for
+    peer = compare(p.property_type, inp["floor_area_m2"].value, inp["age_band"].value,
+                   {k: (b.annual_kwh, b.basis) for k, b in baseline.items()})
+    facts = facts.model_copy(update={
+        "peer": peer,
+        "insights": facts.insights + (peer.signals if peer else []),
+        "plan": [r.model_copy(update={"real_evidence": evidence_for(r.measure_id)}) for r in facts.plan],
+    })
     nba = select_next_best_action(facts, constraints.get("objective", DEFAULT_OBJECTIVE))
     return facts.model_copy(update={"next_best_action": nba})
 

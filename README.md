@@ -4,7 +4,9 @@
 > **Built and tested:** score, ranking, retrofits, per-fuel savings, carbon, value range, Next Best Action,
 > API + dashboard + Decision Lab, grounding gate, what-if assistant, local-LLM support (llama.cpp / Ollama /
 > free hosted / Claude). 177 tests pass; 0 violations in a 28,422-check sweep.
-> **Now:** moving the ML onto **real data** (DESNZ NEED, 50,000 real homes). Steps R1–R8, about 9–11 h of build time.
+> **Now:** real data (DESNZ NEED, 50,000 real homes) is in. R1–R4 are done: real energy model, real retrofit savings
+> (loft 5.6%, cavity 11.1% of gas; solar 9.8% of imports), and peer comparison in the product. R6 (LLM pass rate) is running;
+> R5, R7 and R8 are next. Results: [`reports/REAL_DATA.md`](reports/REAL_DATA.md).
 > **Read this first:** [`docs/STATUS_AND_PLAN.md`](docs/STATUS_AND_PLAN.md) (what's real vs synthetic, what's
 > done, what's next, and a prompt to paste into ChatGPT for advice).
 

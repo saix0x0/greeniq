@@ -110,6 +110,13 @@ def llm_status() -> tuple[bool, str]:
     return name != "off", why
 
 
+def _change(saving: float | None) -> str:
+    """Direction in words, so a model never has to interpret a negative 'saving' (the heat-pump trap)."""
+    if not saving:
+        return "no change"
+    return f"{'falls' if saving > 0 else 'RISES'} by {abs(saving):,.0f} kWh a year"
+
+
 def fact_sheet(f: ComputedFacts, scope: str) -> dict:
     """The compact subset of facts the model sees (everything in it is checkable)."""
     sheet = {
@@ -126,8 +133,9 @@ def fact_sheet(f: ComputedFacts, scope: str) -> dict:
         sheet["package"] = {
             "measures": [m.replace("_", " ") for m in pk.measures],
             "electricity": {"baseline_kwh": im.electricity.baseline_kwh, "after_kwh": im.electricity.after_kwh,
-                            "saving_kwh": im.electricity.saving_kwh},
-            "gas": {"baseline_kwh": im.gas.baseline_kwh, "after_kwh": im.gas.after_kwh, "saving_kwh": im.gas.saving_kwh},
+                            "saving_kwh": im.electricity.saving_kwh, "change": _change(im.electricity.saving_kwh)},
+            "gas": {"baseline_kwh": im.gas.baseline_kwh, "after_kwh": im.gas.after_kwh, "saving_kwh": im.gas.saving_kwh,
+                    "change": _change(im.gas.saving_kwh)},
             "net_saving_kwh": im.net_saving_kwh, "carbon_saving_kg": im.carbon.total_kg,
             "sum_of_standalone_savings_kwh": pk.sum_of_standalone_net_kwh, "interaction_kwh": pk.interaction_kwh,
             "score_after": pk.score_after, "band_after": pk.band_after,

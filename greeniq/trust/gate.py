@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from ..facts import ComputedFacts
 
-GATE_VERSION = "grounding-gate/1.1"
+GATE_VERSION = "grounding-gate/1.2"
 
 MEASURE_WORDS = {
     "air_source_heat_pump": r"heat[- ]pumps?",
@@ -186,6 +186,8 @@ def check_direction(text: str, f: ComputedFacts) -> list[Violation]:
                 continue
             fuel = fuels[0]
             down, up = re.search(DOWN, cl), re.search(UP, cl)
+            if down and not up and re.search(r"(?:^|\s)[-−]\s?\d", cl):  # "a saving of −3,240 kWh" = an increase
+                down, up = None, True
             if down and not up and sign[fuel] < 0:
                 out.append(Violation(kind="wrong_direction", detail=f"says {fuel} falls, but it rises in this package: '{clause.strip()}'"))
             elif up and not down and sign[fuel] > 0:

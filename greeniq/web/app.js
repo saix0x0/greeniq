@@ -345,6 +345,7 @@ async function property(main, id, live) {
       <div class="stack">
         <div class="kpis">${propertyKpis(f)}</div>
         <div class="card" id="decomp-card"></div>
+        ${peerCard(f)}
         <div class="card explain"><div class="card-head"><h3>In plain English</h3><span class="src">template narrator · every sentence built from computed facts</span></div>
           ${explanation.sentences.map((s, i) => `<p ${i > 3 ? "hidden data-more" : ""}>${esc(s.text)}${S.mode === "evidence" ? ` <span class="ref" style="display:inline">← ${esc(s.refs.join(", "))}</span>` : ""}</p>`).join("")}
           ${explanation.sentences.length > 4 ? `<button class="btn" id="more">Show the full explanation</button>` : ""}</div>
@@ -440,6 +441,19 @@ function gateBadge(ex) {
   return `<p class="small muted" style="margin-top:8px">${ex.mode === "llm" ? "Language model" : "Template narrator"} · grounding gate ${ex.gate.passed ? "✓ passed" : "✗"} · ${ok}/${cl.length} numbers traced to computed facts${ex.note ? ` · ${esc(ex.note)}` : ""}</p>`;
 }
 
+function peerCard(f) {
+  const p = f.peer;
+  if (!p) return "";
+  const bar = (x) => `<div class="pbar"><div class="pfill" style="left:${x.percentile}%"></div></div>`;
+  return `<div class="card"><div class="card-head"><div><h3>Homes like yours <span class="badge">real data</span></h3>
+      <p class="hint">Compared with real ${esc(p.peer_group)} homes in England and Wales (DESNZ NEED, 2024 meter year).</p></div></div>
+    ${p.fuels.map((x) => `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between">
+        <span class="fuel ${x.fuel === "gas" ? "gs" : "el"}">${cap(x.fuel)}</span>
+        <span class="num">${fmt(x.actual_kwh)} kWh vs typical ${fmt(x.peer_median_kwh)} · uses more than ${x.percentile}% of ${fmt(x.n_peers)} similar real homes</span></div>
+        ${bar(x)}</div>`).join("")}
+    ${p.signals.map((s) => `<div class="banner" style="margin:8px 0 0">${esc(s)}</div>`).join("")}</div>`;
+}
+
 function propertyKpis(f) {
   const s = f.score, b = f.baseline, el = b.electricity, gs = b.gas, v = f.value;
   const total = el.annual_kwh != null && gs.annual_kwh != null ? el.annual_kwh + gs.annual_kwh : null;
@@ -520,7 +534,8 @@ function recRail(f) {
       <div class="r2">${esc(r.stage_label)}${r.depends_on.length ? ` · after ${esc(r.depends_on.map(nice).join(", "))}` : ""}</div>
       <div class="r2 num" style="display:flex;gap:12px;flex-wrap:wrap" data-tip="In-package change per year (this measure after the ones before it). ▲ = more use.">
         ${fuelChange(r.in_package.electricity.saving_kwh, "el", "Elec")} ${fuelChange(r.in_package.gas.saving_kwh, "gs", "Gas")} <span class="muted">kWh/yr</span> ${tag("estimated", "engine estimate, not a guarantee")}</div>
-      <div class="r2 num">${rc(r.receipt, `${gbp(r.cost_low)}–${gbp(r.cost_high)}`)} <span class="muted">indicative</span></div></div>`).join("");
+      <div class="r2 num">${rc(r.receipt, `${gbp(r.cost_low)}–${gbp(r.cost_high)}`)} <span class="muted">indicative</span></div>
+      ${r.real_evidence ? `<div class="r2 evidence-real" title="Observed in real homes, DESNZ NEED (Open Government Licence)"><span class="badge">real data</span> ${esc(r.real_evidence)}</div>` : ""}</div>`).join("");
   return `<div class="card-head"><div><h3>Recommendations</h3><p class="hint">Led by the Next Best Action; feasible measures only, in a sensible order.</p></div></div>
     <div class="tabs" id="rec-tabs"><button data-v="rec" class="on">Recommend (${f.plan.length})</button><button data-v="refer">Refer (${refer.length + f.questions.length})</button><button data-v="ns">Not suitable (${notSuit.length})</button></div>
     <div data-pane="rec">${recs || `<div class="empty" style="margin-top:10px">No feasible measures.</div>`}</div>

@@ -75,6 +75,7 @@ class Recommendation(BaseModel):
     cost_high: int
     cost_basis: str
     grant_note: str | None = None
+    real_evidence: str | None = None  # observed effect in real homes (DESNZ NEED), when available
     receipt: Receipt
 
 
@@ -194,6 +195,12 @@ class ComputedFacts(BaseModel):
     value: ValueResult | None
     scenario: ScenarioInfo | None
     insights: list[str] = Field(default_factory=list)
+    peer: "PeerComparison | None" = None  # this home vs similar REAL homes (DESNZ NEED)
     next_best_action: NextBestAction | None = None
     providers_used: dict[str, str]
     warnings: list[str]
+
+
+from .real.benchmarks import PeerComparison  # noqa: E402
+
+ComputedFacts.model_rebuild()

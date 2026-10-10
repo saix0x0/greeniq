@@ -231,3 +231,8 @@ body.demo .rcpt { text-decoration: none; cursor: default; }
 dl.kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 6px 12px; font-size: 13px; margin: 0; }
 dl.kv dt { color: var(--ink-3); }
 dl.kv dd { margin: 0; }
+
+.pbar { position: relative; height: 8px; border-radius: 4px; margin-top: 6px;
+  background: linear-gradient(90deg, var(--b-he, #16a34a), var(--b-m, #eab308) 50%, var(--b-vp, #dc2626)); opacity: .55; }
+.pfill { position: absolute; top: -3px; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
+.evidence-real { color: var(--ink); }
