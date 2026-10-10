@@ -33,6 +33,7 @@ packages = ["greeniq"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [

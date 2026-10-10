@@ -14,8 +14,8 @@
 | Phase | What it delivers | Status |
 |---|---|---|
 | **0** Audit & plan | Requirement matrix, architecture, decisions, risk register (this doc) | ✅ done |
-| **1** Contract + Green Home Score | Domain schema; 7 monotonic sub-scores; PS weights; bands; receipts; tests | ⬜ next |
-| **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | ⬜ |
+| **1** Contract + Green Home Score | Domain schema; 7 monotonic sub-scores; PS weights; bands; receipts; tests | ✅ done (36 tests green) |
+| **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | 🔄 next |
 | **3** Engines | Annualisation, per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, receipts | ⬜ |
 | **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | ⬜ |
 | **5** API + persistence + memory | FastAPI, SQLite, scenarios, customer memory | ⬜ |
@@ -23,6 +23,17 @@
 | **7** Grounded AI | Template narrator, grounding gate, Claude behind the gate, what-if assistant, groundedness eval | ⬜ |
 | **8** Hardening | End-to-end tests, adversarial inputs, fresh-clone run | ⬜ |
 | **9** Delivery | README, methodology, Responsible AI, architecture, BUILD_REPORT | ⬜ |
+
+### How to run (verified commands only; grows each phase)
+
+```bash
+uv sync                      # create .venv with pinned dependencies (uv.lock)
+uv run pytest                # run the test suite
+```
+
+> Machine note: on a machine with ROS installed, `PYTHONPATH` leaks ROS pytest plugins
+> into the venv. Prefix commands with `env -u PYTHONPATH` there. Judges' machines
+> won't need this.
 
 ---
 
@@ -58,7 +69,7 @@ The **Status** column is updated as phases land.
 
 | ID | Requirement | Where it is implemented | Proof (test / artifact) | Status |
 |---|---|---|---|---|
-| FR-1 | Green Home Score, 7 fixed weights, monotonic sub-scores, bands, contributions | `greeniq/score.py`, `greeniq/config/score_mappings.py` | `tests/test_score.py` (weights, bands, half-up rounding, property-based monotonicity) | ⬜ |
+| FR-1 | Green Home Score, 7 fixed weights, monotonic sub-scores, bands, contributions | `greeniq/score.py`, `greeniq/config/score_mappings.py` | `tests/test_score.py` (weights, bands, half-up rounding, property-based monotonicity) | ✅ engine done; wired into the pipeline in Phase 3 |
 | FR-2 | Flag Poor/Very poor, key issues, rank by improvement potential, per fuel, fair to big homes | `greeniq/engines/ranking.py` | ranking tests; "rank by total kWh" vs ours in eval | ⬜ |
 | FR-3 | Feasible retrofits only, H/M/L, reasons, interaction order | `greeniq/engines/retrofit.py`, `greeniq/config/retrofit_catalogue.json` | feasibility tests (flat ≠ loft/solar/ASHP), zero violations in eval | ⬜ |
 | FR-4 | Per retrofit and per package savings, elec and gas separate, negative savings, not a sum | `greeniq/engines/energy.py` | heat-pump test (elec ↑, gas ↓), package ≠ sum test | ⬜ |
@@ -143,7 +154,7 @@ flowchart LR
 | A | Working prototype | `greeniq serve` → http://localhost:8000 | ⬜ |
 | B | Source + data generation scripts + run instructions | `greeniq/`, `greeniq generate`, README | ⬜ |
 | C | Trained models + inference code | `models/`, `greeniq/ml/` | ⬜ |
-| D | Sub-score mappings | `docs/SCORING_METHOD.md` | ⬜ |
+| D | Sub-score mappings | [`docs/SCORING_METHOD.md`](SCORING_METHOD.md) | ✅ |
 | E | LLM prompts, model details, evaluation approach | `docs/LLM.md`, `greeniq/trust/prompts.py` | ⬜ |
 | F | Architecture diagram | `docs/ARCHITECTURE.md` + `docs/03` | ⬜ |
 | G | Evaluation report | `reports/EVALUATION.md` (generated) | ⬜ |
@@ -166,3 +177,14 @@ flowchart LR
   - **Value premium evidence:** Fuerst et al. (DECC 2013; 2015 paper): EPC A/B ≈ +5%, C ≈ +1.8% vs D, all else equal. The simulator plants premiums of this order; the report states the model can only recover what was planted.
 - Set up the Python project with `uv` (pinned `uv.lock`).
 - **Next:** Phase 1, the domain contract and the Green Home Score engine.
+
+### 2026-10-10 · Phase 1: domain contract and Green Home Score
+- **Contract** (`greeniq/contract.py`): strict input validation (impossible values → 422-style errors; e.g. negative floor area, SAP 500, `flat_position` on a house, duplicate meter months). Missing values are *not* errors.
+- **Basis tags** on every input: observed · derived · assumed (age-band default) · estimated (model) · not applicable · missing. The UI will show these next to numbers.
+- **Score engine** (`greeniq/score.py`): PS2 weights, half-up rounding, five bands, contributions and "points available" per component, issues ranked by points available, a receipt on every component.
+- **Missing data, without guessing:** `complete` / `provisional` (defaults or estimates used) / `partial` (a component can't be valued → we report the **range** the score could take, and a band only if the range sits in one band).
+- **Fairness:** a mid-floor flat isn't penalised for having no loft; intensity is per m², so size alone never lowers the score (both tested).
+- **Bug caught by property-based testing:** Hypothesis found that a 21-year-old non-condensing boiler (30 − 10.2 age penalty) scored *below* direct electric (20), the rung beneath it. Fixed by setting direct electric to 15 so ladder rungs can't overlap, plus a dedicated regression test.
+- **Tests:** `uv run pytest` → **36 passed** (weights, bands, rounding, monotonicity of every mapping, whole-score monotonicity over 300 generated homes, missing-data states, fairness, contract validation).
+- **Docs:** [`docs/SCORING_METHOD.md`](SCORING_METHOD.md) (submission artifact D).
+- **Next:** Phase 2, the synthetic world simulator and data pipeline.
