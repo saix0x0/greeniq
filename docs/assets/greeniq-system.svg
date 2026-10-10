@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 820" width="1440" height="820" font-family="Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">GreenIQ — system at a glance</title>
+  <desc id="d">Inputs flow through features into a shared HomeState contract, a deterministic core of six engines computes every number into ComputedFacts with receipts, a language model may only explain those facts behind a grounding gate with a template fallback, and an API serves the dashboard; what-if changes loop back to rerun the engines.</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8FA3BF"/></marker>
+    <marker id="arrG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#34D399"/></marker>
+    <marker id="arrA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#FBBF24"/></marker>
+    <marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#22D3EE"/></marker>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#0E1A2F"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0 L0 0 0 32" fill="none" stroke="#16233B" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- canvas -->
+  <rect width="1440" height="820" rx="24" fill="url(#bg)"/>
+  <rect width="1440" height="820" rx="24" fill="url(#grid)" opacity="0.55"/>
+
+  <!-- title -->
+  <text x="48" y="60" font-size="30" font-weight="700" fill="#E6EDF7">GreenIQ — system at a glance</text>
+  <text x="48" y="90" font-size="16" fill="#8FA3BF">Code computes every number · AI only explains · every number has a receipt</text>
+  <text x="1392" y="60" font-size="13" fill="#8FA3BF" text-anchor="end">Lloyds PS2 · Green Home Score &amp; Retrofit Engine</text>
+
+  <!-- column headers -->
+  <g font-size="11" font-weight="600" fill="#8FA3BF" letter-spacing="1.5" text-anchor="middle">
+    <text x="130" y="134">1 · INPUTS</text>
+    <text x="345" y="134">2 · FEATURES</text>
+    <text x="545" y="134">3 · CONTRACT</text>
+    <text x="760" y="134">4 · DETERMINISTIC CORE</text>
+    <text x="975" y="134">5 · FACTS</text>
+    <text x="1165" y="134">6 · EXPLAIN SAFELY</text>
+    <text x="1345" y="134">7 · INTERFACE</text>
+  </g>
+
+  <!-- trust boundary -->
+  <line x1="1070" y1="178" x2="1070" y2="650" stroke="#FBBF24" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
+  <text x="1070" y="672" font-size="11" font-weight="700" fill="#FBBF24" letter-spacing="1.5" text-anchor="middle">TRUST BOUNDARY</text>
+  <text x="1060" y="690" font-size="11" fill="#8FA3BF" text-anchor="end">numbers computed ◀</text>
+  <text x="1080" y="690" font-size="11" fill="#8FA3BF">▶ words generated</text>
+
+  <!-- numbers bypass the language layer -->
+  <path d="M975,250 V164 H1345 V226" fill="none" stroke="#22D3EE" stroke-width="1.6" marker-end="url(#arrC)" opacity="0.9"/>
+  <text x="1160" y="157" font-size="11" fill="#22D3EE" text-anchor="middle">numbers go straight to the UI — never through the LLM</text>
+
+  <!-- 1 · inputs -->
+  <g font-size="14" font-weight="600" fill="#E6EDF7" text-anchor="middle">
+    <rect x="40" y="230" width="180" height="58" rx="12" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="130" y="254">Property attributes</text>
+    <rect x="40" y="302" width="180" height="58" rx="12" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="130" y="326">Energy usage</text>
+    <rect x="40" y="374" width="180" height="58" rx="12" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="130" y="398">Retrofit catalogue</text>
+    <rect x="40" y="446" width="180" height="58" rx="12" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="130" y="470">Emission factors</text>
+    <rect x="40" y="518" width="180" height="58" rx="12" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="130" y="542">Sales history</text>
+  </g>
+  <g font-size="11.5" fill="#BFDBFE" text-anchor="middle">
+    <text x="130" y="273">type · size · fabric</text>
+    <text x="130" y="345">monthly, per fuel</text>
+    <text x="130" y="417">applicability · impact</text>
+    <text x="130" y="489">cited source + year</text>
+    <text x="130" y="561">for the value range</text>
+  </g>
+
+  <!-- 2 · features -->
+  <g font-size="14" font-weight="600" fill="#E6EDF7" text-anchor="middle">
+    <rect x="260" y="266" width="170" height="58" rx="12" fill="#0C2A3A" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="345" y="290">Annualise</text>
+    <rect x="260" y="338" width="170" height="58" rx="12" fill="#0C2A3A" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="345" y="362">Intensity</text>
+    <rect x="260" y="410" width="170" height="58" rx="12" fill="#0C2A3A" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="345" y="434">Missing &amp; conflicts</text>
+    <rect x="260" y="482" width="170" height="58" rx="12" fill="#0C2A3A" stroke="#38BDF8" stroke-width="1.5"/>
+    <text x="345" y="506">Splits &amp; encoding</text>
+  </g>
+  <g font-size="11.5" fill="#BAE6FD" text-anchor="middle">
+    <text x="345" y="309">consistent, per fuel</text>
+    <text x="345" y="381">kWh/m² vs peers</text>
+    <text x="345" y="453">explicit, never zero</text>
+    <text x="345" y="525">no leakage</text>
+  </g>
+
+  <!-- 3 · contract -->
+  <rect x="470" y="280" width="150" height="130" rx="14" fill="#10264A" stroke="#60A5FA" stroke-width="2"/>
+  <text x="545" y="318" font-size="16" font-weight="700" fill="#E6EDF7" text-anchor="middle">HomeState</text>
+  <g font-size="11.5" fill="#BFDBFE" text-anchor="middle">
+    <text x="545" y="344">one shared schema</text>
+    <text x="545" y="362">every module</text>
+    <text x="545" y="380">reads &amp; writes it</text>
+  </g>
+  <rect x="470" y="430" width="150" height="90" rx="14" fill="#10264A" stroke="#60A5FA" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="545" y="466" font-size="15" font-weight="700" fill="#E6EDF7" text-anchor="middle">Scenario</text>
+  <text x="545" y="488" font-size="11.5" fill="#BFDBFE" text-anchor="middle">what-if overrides</text>
+
+  <!-- 4 · deterministic core -->
+  <rect x="660" y="170" width="200" height="470" rx="18" fill="#0B2A20" fill-opacity="0.6" stroke="#34D399" stroke-width="2"/>
+  <g font-size="14" font-weight="600" fill="#ECFDF5" text-anchor="middle">
+    <rect x="675" y="190" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="214">Green Home Score</text>
+    <rect x="675" y="262" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="286">Flag &amp; rank</text>
+    <rect x="675" y="334" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="358">Energy</text>
+    <rect x="675" y="406" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="430">Retrofit planner</text>
+    <rect x="675" y="478" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="502">Carbon</text>
+    <rect x="675" y="550" width="170" height="58" rx="12" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="760" y="574">Value</text>
+  </g>
+  <g font-size="11.5" fill="#A7F3D0" text-anchor="middle">
+    <text x="760" y="233">7 weighted sub-scores</text>
+    <text x="760" y="305">improvement potential</text>
+    <text x="760" y="377">per fuel: elec · gas</text>
+    <text x="760" y="449">feasible · ordered</text>
+    <text x="760" y="521">ΔC = Σ ΔE × EF</text>
+    <text x="760" y="593">indicative range</text>
+  </g>
+
+  <!-- 5 · facts -->
+  <rect x="900" y="250" width="150" height="150" rx="14" fill="#10264A" stroke="#60A5FA" stroke-width="2"/>
+  <text x="975" y="288" font-size="15" font-weight="700" fill="#E6EDF7" text-anchor="middle">ComputedFacts</text>
+  <g font-size="11.5" fill="#BFDBFE" text-anchor="middle">
+    <text x="975" y="314">score · band</text>
+    <text x="975" y="334">plan · per-fuel</text>
+    <text x="975" y="354">carbon · value</text>
+    <text x="975" y="374">insufficiency states</text>
+  </g>
+  <rect x="900" y="420" width="150" height="110" rx="14" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+  <text x="975" y="458" font-size="15" font-weight="700" fill="#E6EDF7" text-anchor="middle">Receipts</text>
+  <g font-size="11.5" fill="#BFDBFE" text-anchor="middle">
+    <text x="975" y="482">inputs · method</text>
+    <text x="975" y="500">source · provider</text>
+  </g>
+
+  <!-- 6 · explain safely -->
+  <rect x="1090" y="190" width="150" height="100" rx="14" fill="#2A1B4A" stroke="#A78BFA" stroke-width="1.5"/>
+  <text x="1165" y="228" font-size="15" font-weight="700" fill="#F5F3FF" text-anchor="middle">Explainer</text>
+  <g font-size="11.5" fill="#DDD6FE" text-anchor="middle">
+    <text x="1165" y="252">LLM narrates</text>
+    <text x="1165" y="270">facts only</text>
+  </g>
+  <rect x="1090" y="320" width="150" height="110" rx="14" fill="#3D2F0A" stroke="#FBBF24" stroke-width="2"/>
+  <text x="1165" y="356" font-size="14" font-weight="700" fill="#FFFBEB" text-anchor="middle">Grounding gate</text>
+  <g font-size="11.5" fill="#FDE68A" text-anchor="middle">
+    <text x="1165" y="380">every number &amp;</text>
+    <text x="1165" y="398">claim in facts?</text>
+    <text x="1165" y="416">pass · reject</text>
+  </g>
+  <rect x="1090" y="460" width="150" height="80" rx="14" fill="#3D2F0A" fill-opacity="0.5" stroke="#FBBF24" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="1165" y="494" font-size="14" font-weight="700" fill="#FFFBEB" text-anchor="middle">Template</text>
+  <text x="1165" y="516" font-size="11.5" fill="#FDE68A" text-anchor="middle">if rejected / no key</text>
+
+  <!-- 7 · interface -->
+  <rect x="1280" y="230" width="130" height="70" rx="14" fill="#0B2F3A" stroke="#22D3EE" stroke-width="1.5"/>
+  <text x="1345" y="262" font-size="15" font-weight="700" fill="#ECFEFF" text-anchor="middle">API</text>
+  <text x="1345" y="284" font-size="11.5" fill="#A5F3FC" text-anchor="middle">facts · explain</text>
+  <rect x="1280" y="320" width="130" height="230" rx="14" fill="#0B2F3A" stroke="#22D3EE" stroke-width="2"/>
+  <text x="1345" y="352" font-size="15" font-weight="700" fill="#ECFEFF" text-anchor="middle">Dashboard</text>
+  <g font-size="12" fill="#A5F3FC" text-anchor="middle">
+    <text x="1345" y="380">Score gauge</text>
+    <text x="1345" y="402">Why · receipts</text>
+    <text x="1345" y="424">Retrofit plan</text>
+    <text x="1345" y="446">Elec vs gas</text>
+    <text x="1345" y="468">Carbon · value</text>
+    <text x="1345" y="490">What-if</text>
+    <text x="1345" y="512">Assistant ✓</text>
+  </g>
+
+  <!-- flow arrows -->
+  <g stroke="#8FA3BF" stroke-width="1.6" fill="none">
+    <line x1="220" y1="403" x2="257" y2="403" marker-end="url(#arr)"/>
+    <line x1="430" y1="367" x2="467" y2="367" marker-end="url(#arr)"/>
+    <line x1="620" y1="345" x2="657" y2="345" marker-end="url(#arr)"/>
+    <line x1="1050" y1="282" x2="1087" y2="246" marker-end="url(#arr)"/>
+    <line x1="1050" y1="362" x2="1087" y2="374" marker-end="url(#arr)"/>
+    <line x1="1165" y1="290" x2="1165" y2="317" marker-end="url(#arr)"/>
+    <line x1="1345" y1="300" x2="1345" y2="317" marker-end="url(#arr)"/>
+  </g>
+  <line x1="620" y1="475" x2="657" y2="475" stroke="#22D3EE" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrC)"/>
+  <g stroke="#34D399" stroke-width="1.8" fill="none">
+    <line x1="860" y1="325" x2="897" y2="325" marker-end="url(#arrG)"/>
+    <line x1="860" y1="475" x2="897" y2="475" marker-end="url(#arrG)"/>
+  </g>
+  <!-- gate outcomes -->
+  <path d="M1240,375 H1260" stroke="#34D399" stroke-width="1.8" fill="none"/>
+  <path d="M1240,500 H1260 V265 H1277" stroke="#8FA3BF" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+  <text x="1244" y="368" font-size="10" font-weight="600" fill="#34D399">pass</text>
+  <line x1="1165" y1="430" x2="1165" y2="457" stroke="#FBBF24" stroke-width="1.6" marker-end="url(#arrA)"/>
+  <text x="1173" y="448" font-size="10" font-weight="600" fill="#FBBF24">reject</text>
+
+  <!-- what-if loop -->
+  <path d="M1345,550 V708 H545 V523" fill="none" stroke="#22D3EE" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrC)"/>
+  <text x="945" y="730" font-size="12.5" font-weight="600" fill="#22D3EE" text-anchor="middle">WHAT-IF · customer changes the scenario → engines rerun first → new facts → explained</text>
+
+  <!-- legend -->
+  <g font-size="12" fill="#C7D2E3">
+    <rect x="48" y="772" width="14" height="14" rx="3" fill="#0F3D2E" stroke="#34D399" stroke-width="1.5"/>
+    <text x="70" y="784">Deterministic engines</text>
+    <rect x="230" y="772" width="14" height="14" rx="3" fill="#10264A" stroke="#60A5FA" stroke-width="1.5"/>
+    <text x="252" y="784">Data &amp; contract</text>
+    <rect x="380" y="772" width="14" height="14" rx="3" fill="#3D2F0A" stroke="#FBBF24" stroke-width="1.5"/>
+    <text x="402" y="784">Trust gate</text>
+    <rect x="494" y="772" width="14" height="14" rx="3" fill="#2A1B4A" stroke="#A78BFA" stroke-width="1.5"/>
+    <text x="516" y="784">Language (LLM)</text>
+    <rect x="636" y="772" width="14" height="14" rx="3" fill="#0B2F3A" stroke="#22D3EE" stroke-width="1.5"/>
+    <text x="658" y="784">Interface</text>
+    <line x1="742" y1="779" x2="772" y2="779" stroke="#22D3EE" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="780" y="784">what-if loop</text>
+  </g>
+  <text x="1392" y="784" font-size="12" fill="#8FA3BF" text-anchor="end">Every number: computed · receipted · never invented</text>
+</svg>
