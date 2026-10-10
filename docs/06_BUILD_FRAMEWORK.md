@@ -1,9 +1,12 @@
 # 06 · Build Framework
 
-> **How** to build: phases with entry/exit gates, the walking-skeleton strategy, what the
-> starter must contain, the expected repository shape, conventions, and testing. The
-> target is a **clean, extensible starter build** that meets every PS2 requirement at a
-> credible baseline and leaves obvious plug-in points for advanced work.
+> **How** to build: phases with entry/exit gates, the walking-skeleton strategy, the
+> expected repository shape, conventions, and testing. The target is the **complete base
+> product**: every mandatory PS2 requirement implemented and integrated at a credible,
+> transparent baseline, with plug-in points for advanced work.
+>
+> **Final decisions now live in [`11_IMPLEMENTATION_SPEC.md`](11_IMPLEMENTATION_SPEC.md)**
+> (stack, layout, methods, tests). Where this page and `11` differ, `11` wins.
 
 ---
 
@@ -30,8 +33,8 @@ flowchart LR
 | Phase | Goal | Exit gate (all must be true) |
 |---|---|---|
 | **P0 Orient** | Understand scope and rules | Requirements in `02` mapped to a checklist |
-| **P1 Research** | Answer RQ-1…RQ-11 well enough to decide | Shortlists + scorecards captured |
-| **P2 Decide** | Lock the stack and key methods | ADRs written; dependencies chosen with licences checked |
+| **P1 Verify** | RQ-1…RQ-11 are already resolved in `11`; confirm only the items tagged [E?] | Confirmations recorded in `docs/DECISIONS.md` |
+| **P2 Decide** | Stack and methods are fixed by `11` / ADR-002; decide only minor details | Exact dependency versions pinned; licences checked |
 | **P3 Contract** | Domain schema + data | Schema defined; data generated/loaded; splits saved; data card drafted |
 | **P4 Skeleton** | Every layer exists end-to-end | One home goes data → facts → API → UI, even with placeholder logic; one command runs it |
 | **P5 Baseline engines** | Real, transparent logic for FR-1…FR-6 | Every output is computed, receipted and tested; insufficiency states work |
@@ -67,11 +70,14 @@ never gets rewritten.
 
 ---
 
-## 3. Definition of Done — the starter build
+## 3. Definition of Done — the base product
+
+> Binding detail: every acceptance test in [`12_REQUIREMENTS_MATRIX.md`](12_REQUIREMENTS_MATRIX.md)
+> and `11` §12 passes. Placeholders from the skeleton phase may not remain.
 
 **Functional**
-- [ ] FR-1…FR-8 work end-to-end for any home in the dataset (FR-9 is a stub or a minimal
-  version, with its seam in place)
+- [ ] FR-1…FR-8 work end-to-end for any home in the dataset (FR-9 customer memory is
+  optional in PS2 and deferred; its seam is reserved)
 - [ ] Every number has a receipt; the UI can show it
 - [ ] Insufficiency states exist and are explained (ER-5 scenarios handled)
 - [ ] What-if reruns the engines and returns a diff; the explanation covers only the diff

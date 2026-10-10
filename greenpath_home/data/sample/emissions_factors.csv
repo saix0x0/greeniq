@@ -1,0 +1,3 @@
+fuel,kg_co2e_per_kwh,source,notes
+electricity,0.207,prototype_sample_factor,Starter grid-electricity factor for prototype calculations; replace with documented official factor for submission.
+gas,0.183,prototype_sample_factor,Starter natural-gas factor for prototype calculations; replace with documented official factor for submission.
