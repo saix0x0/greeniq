@@ -9,7 +9,7 @@
   "corruptions": {
     "invented_number": {
       "tried": 187,
-      "caught": 186
+      "caught": 187
     },
     "flipped_direction": {
       "tried": 186,
@@ -35,5 +35,5 @@
     "status": "no API key (template narrator)",
     "failures": []
   },
-  "seconds": 2.8
+  "seconds": 12.4
 }

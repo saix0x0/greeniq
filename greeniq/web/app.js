@@ -354,6 +354,17 @@ async function property(main, id, live) {
           <div class="card" id="try"></div>
         </div>
         <div class="card" id="try-result" hidden></div>
+        <div class="card" id="ask">
+          <div class="card-head"><div><h3>Ask a what-if</h3><p class="hint">Plain words become a scenario by simple rules (no AI); the engine re-runs; the explanation passes the grounding gate before you see it.</p></div></div>
+          <form id="ask-form" style="display:flex;gap:8px;flex-wrap:wrap">
+            <input id="ask-q" class="inp" style="flex:1;min-width:220px" placeholder="What if I only add a heat pump?" autocomplete="off">
+            <button class="btn primary" type="submit">Ask</button></form>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${["What if I only add a heat pump?", "What if I do everything but skip the solar panels?", "What if I already have loft insulation?"]
+            .map((q) => `<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+          <div id="ask-out"></div></div>
+        <div class="card" id="gate">
+          <div class="card-head"><div><h3>The grounding gate at work</h3><p class="hint">Every explanation is checked against the computed facts: numbers (and what they measure), per-fuel direction, value promises, scenario. Failed text is never shown.</p></div>
+          <button class="btn" id="gate-run">Show it</button></div><div id="gate-out"></div></div>
       </div>
       <div class="card" style="position:sticky;top:16px">${recRail(f)}</div>
     </div>`;
@@ -393,6 +404,40 @@ async function property(main, id, live) {
     drawTry();
     run();
   });
+
+  let askSeq = 0;
+  const ask = async (q) => {
+    const mine = ++askSeq, out = $("#ask-out");
+    out.innerHTML = `<div class="loading">Re-running the engine…</div>`;
+    try {
+      const r = await api(`/api/properties/${f.property_id}/ask`, { question: q, objective: S.objective });
+      if (mine !== askSeq || !live()) return;
+      const it = r.interpretation;
+      out.innerHTML = `<p class="small" style="margin-top:12px">${esc(it.message)}</p>` +
+        (r.facts ? `<div class="sep"></div>${scenarioResult(f, r)}${gateBadge(r.explanation)}` : "");
+    } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  };
+  $("#ask-form").addEventListener("submit", (e) => { e.preventDefault(); const q = $("#ask-q").value.trim(); if (q) ask(q); });
+  $("#ask").addEventListener("click", (e) => { const c = e.target.closest("[data-q]"); if (c) { $("#ask-q").value = c.dataset.q; ask(c.dataset.q); } });
+  $("#gate-run").addEventListener("click", async () => {
+    const out = $("#gate-out");
+    out.innerHTML = `<div class="loading">Checking…</div>`;
+    try {
+      const r = await api(`/api/properties/${f.property_id}/gate-demo`);
+      if (!live()) return;
+      out.innerHTML = r.cases.length ? r.cases.map((c) => `<div class="rec">
+          <div class="r1"><span>${esc(c.label)}</span><span class="disp ${c.gate.passed ? "recommend" : "refer_for_survey"}">${c.gate.passed ? "✓ shown" : "✗ blocked"}</span></div>
+          <div class="r2">${esc(c.text)}</div>
+          ${c.gate.violations.length ? `<div class="r2" style="color:var(--up,#b91c1c)">${c.gate.violations.map((v) => esc(v.detail)).join(" · ")}</div>` : ""}</div>`).join("")
+        : `<div class="empty">${esc(r.note || "Nothing to check.")}</div>`;
+    } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  });
+}
+
+function gateBadge(ex) {
+  if (!ex?.gate) return "";
+  const cl = ex.gate.claims.filter((c) => c.status !== "exempt"), ok = cl.filter((c) => c.status === "grounded").length;
+  return `<p class="small muted" style="margin-top:8px">${ex.mode === "llm" ? "Language model" : "Template narrator"} · grounding gate ${ex.gate.passed ? "✓ passed" : "✗"} · ${ok}/${cl.length} numbers traced to computed facts${ex.note ? ` · ${esc(ex.note)}` : ""}</p>`;
 }
 
 function propertyKpis(f) {

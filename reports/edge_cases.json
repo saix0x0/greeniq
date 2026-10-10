@@ -1,0 +1,30 @@
+{
+  "homes": 3000,
+  "categories": {
+    "has an infeasible measure": 1199,
+    "Decision Lab runs": 192,
+    "interacting package (2+ measures)": 2608,
+    "gas-heated home with a feasible heat pump": 1815,
+    "zero purchased energy": 27,
+    "score is a range (component missing)": 258,
+    "conflicting records": 450,
+    "missing or insufficient meter data (baseline estimated)": 198
+  },
+  "checks": {
+    "home explanation passes the gate": 3000,
+    "package explanation passes the gate": 2854,
+    "carbon recomputes from displayed per-fuel kWh": 2854,
+    "NBA never picks an infeasible retrofit": 3000,
+    "NBA gives exactly three reasons": 3000,
+    "intensity never computed from zero use": 2885,
+    "what-if never models a measure the home can't have": 3000,
+    "every refused what-if measure carries a reason": 3000,
+    "Decision Lab only offers feasible packages": 192,
+    "package = standalone sum + reported interaction": 2608,
+    "heat pump raises electricity and cuts gas": 1815,
+    "no improvement % without a metered, non-zero baseline": 214
+  },
+  "violations": {},
+  "examples": {},
+  "seconds": 91.5
+}

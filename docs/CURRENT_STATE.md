@@ -17,12 +17,12 @@
 | **1** Contract + Green Home Score | Domain schema; 7 monotonic sub-scores; PS weights; bands; receipts; tests | ✅ done (36 tests green) |
 | **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | ✅ done (48 tests green) |
 | **3** Engines | Per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, conflicts, receipts | ✅ done (74 tests green) |
-| **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | 🔄 next |
-| **5** API + persistence + memory | FastAPI, SQLite, scenarios, customer memory | ⬜ |
-| **6** Dashboard | One-port web app: score, fingerprint, plan, scenario lab, roadmap, portfolio, receipts | ⬜ |
-| **7** Grounded AI | Template narrator, grounding gate, Claude behind the gate, what-if assistant, groundedness eval | ⬜ |
-| **8** Hardening | End-to-end tests, adversarial inputs, fresh-clone run | ⬜ |
-| **9** Delivery | README, methodology, Responsible AI, architecture, BUILD_REPORT | ⬜ |
+| **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | ✅ done |
+| **5** API + persistence + memory | FastAPI, SQLite, scenarios, customer constraints | ✅ done (product P3) |
+| **6** Dashboard | One-port web app: portfolio, property view, Decision Lab, analytics, evidence, receipts | ✅ done (product P3–P4) |
+| **7** Grounded AI | Template narrator, grounding gate, Claude behind the gate, what-if assistant, groundedness eval | ✅ done (product P5) |
+| **8** Hardening | End-to-end tests, adversarial inputs, edge-case sweep over all homes | ✅ done (product P5) |
+| **9** Delivery | README, methodology, LLM, Responsible AI, architecture | ✅ done |
 
 ### How to run (verified commands only; grows each phase)
 
@@ -30,6 +30,11 @@
 uv sync                      # create .venv with pinned dependencies (uv.lock)
 uv run greeniq generate      # rebuild data/ from the simulator (seed 42, ~6 s)
 uv run greeniq analyse P00007   # score, plan and package for one home (add --json for everything)
+uv run greeniq train         # fit models (train), tune/promote (validation)
+uv run greeniq evaluate      # held-out test evaluation → reports/EVALUATION.md
+uv run python -m greeniq eval-grounding   # gate evaluation → reports/GROUNDING.md
+uv run python -m greeniq edge-sweep       # all PS2 scenario invariants over 3,000 homes → reports/EDGE_CASES.md
+uv run python -m greeniq serve            # API + dashboard → http://127.0.0.1:8000
 uv run pytest                # run the test suite
 ```
 
@@ -153,15 +158,15 @@ flowchart LR
 
 | ID | Artifact | Location (planned) | Status |
 |---|---|---|---|
-| A | Working prototype | `greeniq serve` → http://localhost:8000 | ⬜ |
-| B | Source + data generation scripts + run instructions | `greeniq/`, `greeniq generate`, README | ⬜ |
-| C | Trained models + inference code | `models/`, `greeniq/ml/` | ⬜ |
+| A | Working prototype | `uv run python -m greeniq serve` → http://127.0.0.1:8000 | ✅ |
+| B | Source + data generation scripts + run instructions | `greeniq/`, `greeniq generate`, README | ✅ |
+| C | Trained models + inference code | `models/` + `models/model_card.json`, `greeniq/ml/` | ✅ |
 | D | Sub-score mappings | [`docs/SCORING_METHOD.md`](SCORING_METHOD.md) | ✅ |
-| E | LLM prompts, model details, evaluation approach | `docs/LLM.md`, `greeniq/trust/prompts.py` | ⬜ |
-| F | Architecture diagram | `docs/ARCHITECTURE.md` + `docs/03` | ⬜ |
-| G | Evaluation report | `reports/EVALUATION.md` (generated) | ⬜ |
-| H | Responsible AI note | `docs/RESPONSIBLE_AI.md` | ⬜ |
-| I | Held-out test predictions + schema | `reports/test_predictions.csv` + `data/DATA_CARD.md` | ⬜ |
+| E | LLM prompts, model details, evaluation approach | [`docs/LLM.md`](LLM.md), `greeniq/trust/prompts.py`, [`reports/GROUNDING.md`](../reports/GROUNDING.md) | ✅ |
+| F | Architecture diagram | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) + `docs/03` | ✅ |
+| G | Evaluation report | [`reports/EVALUATION.md`](../reports/EVALUATION.md), [`reports/EDGE_CASES.md`](../reports/EDGE_CASES.md) | ✅ |
+| H | Responsible AI note | [`docs/RESPONSIBLE_AI.md`](RESPONSIBLE_AI.md) | ✅ |
+| I | Held-out test predictions + schema | [`reports/test_predictions.csv`](../reports/test_predictions.csv) + [schema](../reports/TEST_PREDICTIONS_SCHEMA.md) | ✅ |
 
 ---
 
@@ -237,7 +242,7 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 | **P2** Next Best Action | thin selector over ComputedFacts, 3 traced reasons | ✅ |
 | **P3** API + core dashboard | FastAPI + one-port no-build web app; portfolio + property views | ✅ |
 | **P4** Decision Lab | Choose Your Plan, dependency graph, Pareto, Sankey, interactions, sensitivity | ✅ |
-| **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | 🔄 next |
+| **P5** Grounded AI + E2E validation | narrator, grounding gate, template fallback, edge-case sweep | ✅ |
 
 ### 2026-10-10 · P1: stabilise — verification note
 - **Tests:** `uv run pytest` → **88 passed** on `beautiful` before any change.
@@ -347,45 +352,24 @@ existing engine, vertically.** Product phases P1–P5 map onto the journal's pha
 - **Tests:** 134 passed (10 new in `tests/test_lab.py`).
 - **Next:** P5 — grounded AI (narrator → grounding gate → template fallback) and the end-to-end edge-case validation.
 
-### 2026-10-10 · P5 (IN PROGRESS) — grounded AI · handoff notes for the next builder
-**State:** committed mid-phase so another session can continue. Tests: **134 passed** (no P5 tests yet).
-Run everything with `env -u PYTHONPATH uv run …`; prefer `python -m greeniq …` (macOS hidden-`.pth` issue, see P1).
-
-**Done (uncommitted work now committed):**
-- `greeniq/trust/gate.py` — grounding gate. Checks every explanation for: numbers (value + unit kind: kWh / t·kg /
-  % / £ / points) against all numbers in ComputedFacts (display-rounding tolerance only; whole numbers ≥ 100 must match
-  exactly); per-fuel direction (strips parentheticals, splits clauses, compares with package saving signs); causal or
-  guaranteed value wording; scenario identity (measures mentioned must be in the package / plan).
-- `greeniq/trust/narrator.py::explain(f, scope)` — LLM if available → gate → template fallback. Always attaches the gate
-  result (`explanation.gate`) and a `note` saying which path was used and why. API property/scenario routes use it.
-- `greeniq/trust/llm.py` + `prompts.py` — optional Claude narrator (`claude-opus-5-5`, effort low, server-side refusal
-  fallback `fallbacks="default"` + beta `server-side-fallback-2026-07-01`). OFF unless `ANTHROPIC_API_KEY`/`ANTHROPIC_AUTH_TOKEN`
-  is set and `uv sync --extra llm` installed `anthropic` (1.13.0 verified to accept these params). `GREENIQ_LLM=off` forces off.
-  The model sees only `fact_sheet()`; never raises; any failure → template.
-- `greeniq/trust/assistant.py` — deterministic what-if parser (measure synonyms; "only/just", "also/as well",
-  "without/no/skip" → declined, "already have/did" → completed, "everything/recommended" → full package).
-- API: `POST /api/properties/{id}/ask {question}` (parse → engine rerun → gated explanation),
-  `GET /api/properties/{id}/gate-demo` (honest text passes; invented number / flipped direction / value promise blocked).
-  `/api/health` now reports the LLM status.
-- `greeniq/evaluation/grounding.py` + `python -m greeniq eval-grounding [--n 200] [--llm K]` → `reports/GROUNDING.md`,
-  `reports/grounding.json`. Current result on 200 test homes: clean templates **0/387 wrongly blocked**; corruptions
-  caught — invented number **186/187**, flipped direction **186/186**, causal value claim **187/187**, off-scenario
-  measure **135/135**. LLM: **not run** (no key) — reported as not run, never estimated.
-
-**Known gap (do this first):** the 1 missed invented number (P01027) coincidentally equals a *different* fact (inflated
-"cuts gas by 16,570 kWh" matched `improvement_potential.e_baseline_kwh`). The gate checks "number exists in facts", not
-"number belongs to the claim". Fix idea: role-aware matching — for a clause with a saving verb + fuel, the number must
-match that fuel's saving / after / baseline paths (`package.impact.<fuel>.*`), not any kWh fact. Re-run eval-grounding.
-
-**Remaining P5 steps:**
-1. Role-aware number matching (above).
-2. Tests: `tests/test_trust.py` — gate passes all templates for every fixture; blocks the 4 corruption types; `explain()`
-   uses the LLM text when it passes and falls back when it fails (monkeypatch `greeniq.trust.llm.generate`); assistant
-   parses the phrasings in `assistant.py`; `/ask` and `/gate-demo` endpoints.
-3. UI (`greeniq/web/app.js`): an "Ask a what-if" box on the property view and Decision Lab (POST /ask, render
-   interpretation + gated explanation + mode badge "template" / "LLM · grounded ✓"); a gate-demo panel on the Evidence page.
-4. End-to-end edge-case sweep (`tests/test_e2e.py`): missing electricity / gas / both meters, zero baseline, conflicting
-   records, infeasible + needs-survey measures, heat pump raising electricity, interacting packages, value unavailable —
-   each through API: report → lab → scenario → explanation, numbers consistent, gate passes.
-5. Docs: `docs/LLM.md` (prompts, model, gate, eval — submission artifact E), `docs/RESPONSIBLE_AI.md` (artifact H);
-   update README status; journal entry; commit + push (`beautiful`, then fast-forward `main`; never force-push).
+### 2026-10-11 · P5: grounded AI and end-to-end validation (complete)
+- **Grounding gate** (`greeniq/trust/gate.py`, v1.1): numbers (value, unit kind and **role**), per-fuel direction,
+  causal/guaranteed value wording, scenario identity. v1.1 closed the known gap: a *change* claim ("cuts gas by X")
+  may only match a saving/change fact, not a baseline or after-use level that happens to be equal.
+- **Narrator** (`narrator.explain`): optional Claude → gate → template fallback; the app is complete without a key.
+  The Claude call shape (effort `low`, `server-side-fallback-2026-07-01` + `fallbacks="default"`) was checked
+  against the current API reference.
+- **What-if assistant**: rules turn a question into a scenario; the engine reruns; the explanation is gated.
+- **UI**: "Ask a what-if" box and "The grounding gate at work" panel on the property view (verified in the browser,
+  no console errors).
+- **Groundedness eval** (`eval-grounding`, 200 held-out homes): 0/387 honest explanations wrongly blocked; corruptions
+  caught: invented number **187/187**, flipped direction **186/186**, value promise **187/187**, off-scenario measure
+  **135/135**. Live LLM metrics: **not run** (no key), reported as such.
+- **Edge-case sweep** (`edge-sweep`, all 3,000 homes, 92 s): **28,422 invariant checks, 0 violations**. Covers
+  missing meters, zero use, conflicts, infeasible measures, interacting packages and heat pumps raising electricity.
+- **Tests**: `tests/test_trust.py` (21) and `tests/test_e2e.py` (7) added.
+- **Docs**: [`LLM.md`](LLM.md) (artifact E), [`RESPONSIBLE_AI.md`](RESPONSIBLE_AI.md) (H),
+  [`ARCHITECTURE.md`](ARCHITECTURE.md) (F). All nine submission artifacts now exist (§6).
+- **Not done / optional next**: run the live Claude narrator once a key is available
+  (`uv sync --extra llm`, set `ANTHROPIC_API_KEY`, `python -m greeniq eval-grounding --llm 20`); real NEED data
+  as the backbone (see the review notes); persistent customer memory beyond per-request constraints.

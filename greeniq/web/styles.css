@@ -172,7 +172,7 @@ table.t td { padding: 10px; border-bottom: 1px solid var(--line); white-space: n
 table.t tbody tr { cursor: pointer; }
 table.t tbody tr:hover td { background: var(--card-2); }
 .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.filters input, .filters select, select.inp { border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; background: var(--card); color: var(--ink); font: inherit; }
+.filters input, .filters select, select.inp, input.inp { border: 1px solid var(--line-2); border-radius: 10px; padding: 8px 10px; background: var(--card); color: var(--ink); font: inherit; }
 .filters input { min-width: 220px; }
 
 /* ---------- charts ---------- */

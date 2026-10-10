@@ -102,6 +102,17 @@ def cmd_eval_grounding(args) -> int:
     return 0
 
 
+def cmd_edge_sweep(args) -> int:
+    from .evaluation.edge_sweep import sweep
+
+    o = sweep(lab_every=args.lab_every)
+    print(f"{o['homes']} homes in {o['seconds']}s; checks {sum(o['checks'].values())}, violations {sum(o['violations'].values())}")
+    for k, v in o["violations"].items():
+        print(f"  {k}: {v}")
+    print("→ reports/EDGE_CASES.md")
+    return 0 if not o["violations"] else 1
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -134,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
     gr.add_argument("--n", type=int, default=200, help="test homes")
     gr.add_argument("--llm", type=int, default=0, help="homes to explain with the language model (costs API credits)")
     gr.set_defaults(func=cmd_eval_grounding)
+
+    es = sub.add_parser("edge-sweep", help="run every PS2 scenario invariant over all homes → reports/EDGE_CASES.md")
+    es.add_argument("--lab-every", type=int, default=15, help="also run the Decision Lab on every Nth home")
+    es.set_defaults(func=cmd_edge_sweep)
 
     sv = sub.add_parser("serve", help="run the API and dashboard on one port")
     sv.add_argument("--host", default="127.0.0.1")

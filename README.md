@@ -40,21 +40,19 @@ Other commands: `uv run python -m greeniq analyse P00007` (one home, incl. its N
 | P2 Next Best Action | one action per home from computed facts, 3 traced reasons, respects prerequisites | ✅ |
 | P3 API + dashboard | one-port no-build web app; portfolio, properties, property view, analytics, evidence | ✅ |
 | P4 Decision Lab | Choose Your Plan, cost-vs-carbon frontier, dependency graph, energy Sankey, interaction heatmap, sensitivity | ✅ |
-| P5 Grounded AI | grounding gate, gated explain, what-if assistant, groundedness eval ✅ · LLM wiring + tests + UI + e2e sweep + docs ⬜ | 🔄 |
+| P5 Grounded AI | grounding gate, gated explain, what-if assistant, groundedness eval, UI, e2e sweep, docs | ✅ |
 
 **Key files** — engine: [`greeniq/pipeline.py`](greeniq/pipeline.py) (`analyse_home` → `ComputedFacts`, the single
 source of every number); NBA: [`greeniq/engines/nba.py`](greeniq/engines/nba.py); Decision Lab:
 [`greeniq/lab.py`](greeniq/lab.py); API: [`greeniq/api.py`](greeniq/api.py); UI: [`greeniq/web/`](greeniq/web/);
 grounded AI: [`greeniq/trust/`](greeniq/trust/) (`gate.py`, `narrator.py`, `llm.py`, `assistant.py`, `prompts.py`).
 
-**Remaining P5 work (full detail in [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md)):**
-1. **Known gap first** — role-aware number matching in the gate (one invented number currently slips
-   through because it coincidentally equals a different fact; a "saves X" claim should only match a
-   *saving* figure, not any number).
-2. Tests for the gate / assistant / fallback (`tests/test_trust.py`).
-3. UI: an "Ask a what-if" box and a gate-demo panel.
-4. End-to-end edge-case sweep (missing meters, zero use, conflicts, infeasible + interacting retrofits).
-5. Docs: `docs/LLM.md` (artifact E), `docs/RESPONSIBLE_AI.md` (artifact H); then commit + push.
+**Submission artifacts (PS2 §13):** working app (`uv run python -m greeniq serve`) · source + data scripts ·
+models in [`models/`](models/) · scoring [`docs/SCORING_METHOD.md`](docs/SCORING_METHOD.md) · LLM
+[`docs/LLM.md`](docs/LLM.md) · architecture [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · evaluation
+[`reports/EVALUATION.md`](reports/EVALUATION.md), [`reports/GROUNDING.md`](reports/GROUNDING.md),
+[`reports/EDGE_CASES.md`](reports/EDGE_CASES.md) · Responsible AI [`docs/RESPONSIBLE_AI.md`](docs/RESPONSIBLE_AI.md) ·
+held-out predictions [`reports/test_predictions.csv`](reports/test_predictions.csv).
 
 ### The grounded-AI (LLM) layer — and testing it for free
 
@@ -72,7 +70,7 @@ free ones. The LLM call is isolated in [`greeniq/trust/llm.py`](greeniq/trust/ll
 
 - **Default:** Claude (`claude-opus-5-5`), used only if `ANTHROPIC_API_KEY` is set and `uv sync --extra llm`
   has installed the `anthropic` package. Each explanation shown is then one API call.
-- **Free testing (not yet wired — see P5 step, pick one):** add an OpenAI-compatible branch (uses `httpx`,
+- **Free testing (not wired; optional):** add an OpenAI-compatible branch (uses `httpx`,
   already a dependency — no new package) pointed via env vars at a free endpoint:
   - **Ollama (local, no key, offline):** install Ollama, `ollama pull llama3.1`, point at `http://localhost:11434/v1`.
   - **Groq / Google Gemini / OpenRouter free tiers:** sign up, paste a free key, point at their OpenAI-compatible URL.

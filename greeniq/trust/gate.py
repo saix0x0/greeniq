@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from ..facts import ComputedFacts
 
-GATE_VERSION = "grounding-gate/1.0"
+GATE_VERSION = "grounding-gate/1.1"
 
 MEASURE_WORDS = {
     "air_source_heat_pump": r"heat[- ]pumps?",
@@ -117,10 +117,25 @@ UNIT_KIND = {"%": "pct", "kwh": "kwh", "mwh": "kwh", "gwh": "kwh", "t": "carbon"
              "tco2e": "carbon", "kg": "carbon", "£": "money", "points": "score", "point": "score", "/100": "score"}
 
 
-def _match(x: float, decimals: int, kind: str | None, pool) -> str | None:
+CHANGE_PATH = re.compile(r"saving|net_|interaction|sum_of_standalone|delta|reduction|uplift|carbon\.|_pct|\.pct",
+                         re.IGNORECASE)
+LEVEL_PATH = re.compile(r"baseline_kwh|after_kwh|annual_kwh|heating_kwh|baseload_kwh|emissions", re.IGNORECASE)
+CHANGE_CUE = re.compile(DOWN + "|" + UP + r"|\bby\b", re.IGNORECASE)
+
+
+def _role(text: str, start: int) -> str | None:
+    """'change' when the number is the size of a change ("cuts gas by X", "saves X"), else None."""
+    clause = re.split(r"[.;()]|\bnet\b", text[:start])[-1][-60:]
+    return "change" if CHANGE_CUE.search(clause) else None
+
+
+def _match(x: float, decimals: int, kind: str | None, pool, role: str | None = None) -> str | None:
     tol_abs = 0.51 * 10 ** (-decimals)
     for path, k, a in pool:
         if kind and k != kind and not (kind == "score" and k == "other"):
+            continue
+        # a change claim may only match a change fact, never a baseline/after level that happens to be equal
+        if role == "change" and k in ("kwh", "carbon") and (LEVEL_PATH.search(path) or not CHANGE_PATH.search(path)):
             continue
         # whole numbers ≥ 100 must match exactly (facts are already display-rounded); decimals to their precision
         rel = 0.0 if (decimals == 0 and x >= 100) else 0.001
@@ -149,7 +164,8 @@ def check_numbers(text: str, f: ComputedFacts) -> tuple[list[Claim], list[Violat
         if kind is None and x <= 10 and decimals == 0:  # counts and ordinals ("3 measures", "step 2")
             claims.append(Claim(text=m.group(0).strip(), value=x, unit=unit, status="exempt"))
             continue
-        hit = _match(x, decimals, kind, pool) or (_match(x, decimals, None, pool) if kind in (None, "score") else None)
+        role = _role(text, m.start()) if kind in ("kwh", "carbon") else None
+        hit = _match(x, decimals, kind, pool, role) or (_match(x, decimals, None, pool) if kind in (None, "score") else None)
         status = "grounded" if hit else "unsupported"
         claims.append(Claim(text=m.group(0).strip(), value=x, unit=unit or ("£" if pound else ""), status=status, matched=hit))
         if not hit:
