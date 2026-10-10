@@ -16,7 +16,7 @@
       "cost": {"basis": "per m2 of loft", "low": 12, "high": 22, "minimum": 450},
       "cost_source": "EST via Rightmove (semi-detached avg ~GBP 930, July 2023 prices); HOA (~GBP 825)",
       "lifetime_years": 40,
-      "ps2_illustrative_reduction": 0.15
+      "naive_flat_reduction": 0.15
     },
     "cavity_wall_insulation": {
       "name": "Cavity wall insulation",
@@ -26,7 +26,7 @@
       "cost": {"basis": "per m2 of external wall", "low": 18, "high": 35, "minimum": 1000},
       "cost_source": "NerdWallet citing typical semi-detached ~GBP 2,700; Which? (RICS cost data, Nov 2024)",
       "lifetime_years": 40,
-      "ps2_illustrative_reduction": 0.15
+      "naive_flat_reduction": 0.15
     },
     "solid_wall_insulation": {
       "name": "Solid wall insulation (internal or external)",
@@ -36,7 +36,7 @@
       "cost": {"basis": "per m2 of external wall", "low": 80, "high": 180, "minimum": 6000},
       "cost_source": "Industry ranges for internal (lower) and external (higher) wall insulation; highly variable",
       "lifetime_years": 36,
-      "ps2_illustrative_reduction": 0.15
+      "naive_flat_reduction": 0.15
     },
     "glazing_upgrade": {
       "name": "Upgrade to modern double glazing",
@@ -46,7 +46,7 @@
       "cost": {"basis": "per m2 of window", "low": 250, "high": 500, "minimum": 2500},
       "cost_source": "Typical UK market ranges (GBP 400-800 per window)",
       "lifetime_years": 25,
-      "ps2_illustrative_reduction": 0.05
+      "naive_flat_reduction": 0.05
     },
     "smart_controls": {
       "name": "Smart thermostat and heating controls",
@@ -56,7 +56,7 @@
       "cost": {"basis": "per home", "low": 150, "high": 350},
       "cost_source": "Retail smart thermostat plus installation",
       "lifetime_years": 12,
-      "ps2_illustrative_reduction": 0.05,
+      "naive_flat_reduction": 0.05,
       "evidence_note": "Published trials report anywhere from about 0% to 10%; 5% is a central assumption and is marked uncertain."
     },
     "air_source_heat_pump": {
@@ -68,7 +68,7 @@
       "cost_source": "EST (~GBP 14,000 installed), EDF (~GBP 13,000 average), before grant",
       "grant_note": "Boiler Upgrade Scheme: up to GBP 7,500 in England and Wales (Home Energy Scotland offers similar). Eligibility is not assessed here.",
       "lifetime_years": 20,
-      "ps2_illustrative_reduction": 0.25,
+      "naive_flat_reduction": 0.25,
       "evidence_note": "BUS requires a minimum SCOP of 2.8; monitored UK installations often achieve more. Leaky homes need higher flow temperatures and achieve lower SCOP."
     },
     "solar_pv": {
@@ -83,7 +83,7 @@
       "cost": {"basis": "per kWp", "low": 1300, "high": 2200},
       "cost_source": "MCS installation data (~GBP 2,193 per kW, 2023); 2026 market quotes ~GBP 5,000-7,000 for 4 kWp",
       "lifetime_years": 25,
-      "ps2_illustrative_reduction": 0.10,
+      "naive_flat_reduction": 0.10,
       "evidence_note": "Typical UK yield is roughly 800-1,000 kWh per kWp per year depending on location, orientation and shading."
     }
   }

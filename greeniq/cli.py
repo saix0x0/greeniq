@@ -1,6 +1,8 @@
 """GreenIQ command line: ``greeniq <command>``.
 
     generate   simulate the synthetic world, write data/, validate, split, annualise
+    train      fit models on train, tune and promote on validation (test untouched)
+    evaluate   score the held-out test split once and write reports/
     analyse    analyse one home and print the score, plan and package
 """
 
@@ -66,6 +68,20 @@ def cmd_analyse(args) -> int:
     return 0
 
 
+def cmd_train(args) -> int:
+    from .ml.train import train_all
+
+    train_all()
+    return 0
+
+
+def cmd_evaluate(args) -> int:
+    from .evaluation.evaluate import evaluate_all
+
+    evaluate_all()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="greeniq", description="GreenIQ: Green Home Score & Retrofit Engine")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +90,12 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--n", type=int, default=3000, help="number of homes")
     g.add_argument("--seed", type=int, default=42)
     g.set_defaults(func=cmd_generate)
+
+    t = sub.add_parser("train", help="train models (fit on train, tune on validation) into models/")
+    t.set_defaults(func=cmd_train)
+
+    e = sub.add_parser("evaluate", help="score the held-out test split once → reports/")
+    e.set_defaults(func=cmd_evaluate)
 
     a = sub.add_parser("analyse", help="analyse one home from the dataset")
     a.add_argument("property_id")

@@ -1,0 +1,564 @@
+{
+  "git_commit": "98f4eb8",
+  "model_version": "greeniq-models/1.0",
+  "evaluated_at": "2026-10-10 20:09",
+  "split_counts": {
+    "train": 2146,
+    "validation": 453,
+    "test": 401
+  },
+  "energy": {
+    "electricity": {
+      "test": {
+        "global_median": {
+          "n": 371,
+          "mae": 2342.2,
+          "rmse": 4761.4,
+          "r2": -0.118,
+          "median_ape_pct": 30.6
+        },
+        "peer_median": {
+          "n": 371,
+          "mae": 1359.4,
+          "rmse": 2255.5,
+          "r2": 0.749,
+          "median_ape_pct": 26.3
+        },
+        "physics": {
+          "n": 371,
+          "mae": 1161.2,
+          "rmse": 1890.3,
+          "r2": 0.824,
+          "median_ape_pct": 23.9
+        },
+        "gbm": {
+          "n": 371,
+          "mae": 1020.6,
+          "rmse": 1640.5,
+          "r2": 0.867,
+          "median_ape_pct": 21.0
+        }
+      },
+      "gbm_median_ape_by_type": {
+        "bungalow": 27.0,
+        "detached": 21.7,
+        "flat": 17.8,
+        "semi_detached": 19.6,
+        "terraced": 20.9
+      }
+    },
+    "gas": {
+      "test": {
+        "global_median": {
+          "n": 371,
+          "mae": 5915.5,
+          "rmse": 7745.2,
+          "r2": -0.0,
+          "median_ape_pct": 29.5
+        },
+        "peer_median": {
+          "n": 371,
+          "mae": 3006.1,
+          "rmse": 4676.5,
+          "r2": 0.635,
+          "median_ape_pct": 21.6
+        },
+        "physics": {
+          "n": 371,
+          "mae": 1991.4,
+          "rmse": 3335.3,
+          "r2": 0.815,
+          "median_ape_pct": 14.9
+        },
+        "gbm": {
+          "n": 371,
+          "mae": 1680.2,
+          "rmse": 2856.6,
+          "r2": 0.864,
+          "median_ape_pct": 11.9
+        }
+      },
+      "gbm_median_ape_by_type": {
+        "bungalow": 5.3,
+        "detached": 15.4,
+        "flat": 15.8,
+        "semi_detached": 11.7,
+        "terraced": 11.1
+      }
+    }
+  },
+  "savings": {
+    "cases": 67,
+    "skipped": {
+      "insufficient_meters": 3,
+      "not_in_split": 428
+    },
+    "methods": {
+      "naive": {
+        "electricity": {
+          "mae": 790.0,
+          "bias": 513.7
+        },
+        "gas": {
+          "mae": 1829.1,
+          "bias": -830.7
+        },
+        "hp_electricity_sign_correct": 0.22
+      },
+      "eng": {
+        "electricity": {
+          "mae": 305.1,
+          "bias": 228.5
+        },
+        "gas": {
+          "mae": 373.5,
+          "bias": 216.0
+        },
+        "hp_electricity_sign_correct": 1.0
+      },
+      "cal": {
+        "electricity": {
+          "mae": 227.0,
+          "bias": 126.8
+        },
+        "gas": {
+          "mae": 265.4,
+          "bias": 51.5
+        },
+        "hp_electricity_sign_correct": 1.0
+      }
+    },
+    "heat_pump_cases": 9,
+    "heat_pump_observed_elec_increase_share": 0.78,
+    "per_measure": {
+      "air_source_heat_pump": {
+        "n": 9,
+        "observed_net_mean": 9756.0,
+        "naive_net_mae": 5283.0,
+        "eng_net_mae": 739.0,
+        "cal_net_mae": 475.0
+      },
+      "cavity_wall_insulation": {
+        "n": 4,
+        "observed_net_mean": 2170.0,
+        "naive_net_mae": 769.0,
+        "eng_net_mae": 2008.0,
+        "cal_net_mae": 615.0
+      },
+      "glazing_upgrade": {
+        "n": 16,
+        "observed_net_mean": 1206.0,
+        "naive_net_mae": 536.0,
+        "eng_net_mae": 454.0,
+        "cal_net_mae": 358.0
+      },
+      "loft_insulation": {
+        "n": 12,
+        "observed_net_mean": 424.0,
+        "naive_net_mae": 1810.0,
+        "eng_net_mae": 191.0,
+        "cal_net_mae": 125.0
+      },
+      "smart_controls": {
+        "n": 20,
+        "observed_net_mean": 520.0,
+        "naive_net_mae": 528.0,
+        "eng_net_mae": 456.0,
+        "cal_net_mae": 461.0
+      },
+      "solar_pv": {
+        "n": 5,
+        "observed_net_mean": 866.0,
+        "naive_net_mae": 443.0,
+        "eng_net_mae": 231.0,
+        "cal_net_mae": 231.0
+      },
+      "solid_wall_insulation": {
+        "n": 1,
+        "observed_net_mean": 5336.0,
+        "naive_net_mae": 590.0,
+        "eng_net_mae": 7604.0,
+        "cal_net_mae": 5914.0
+      }
+    }
+  },
+  "value": {
+    "sales": 342,
+    "chosen": "hedonic",
+    "cv": {
+      "regional": {
+        "n": 2432,
+        "mae": 45313.5,
+        "rmse": 71232.1,
+        "r2": 0.879,
+        "median_ape_pct": 11.3
+      },
+      "hedonic": {
+        "n": 2432,
+        "mae": 43701.8,
+        "rmse": 67133.5,
+        "r2": 0.893,
+        "median_ape_pct": 11.0
+      },
+      "gbm_lr0.03_l7": {
+        "n": 2432,
+        "mae": 45345.6,
+        "rmse": 72578.0,
+        "r2": 0.875,
+        "median_ape_pct": 11.3
+      },
+      "gbm_lr0.03_l15": {
+        "n": 2432,
+        "mae": 45838.6,
+        "rmse": 73481.0,
+        "r2": 0.871,
+        "median_ape_pct": 11.4
+      },
+      "gbm_lr0.06_l7": {
+        "n": 2432,
+        "mae": 45649.4,
+        "rmse": 72574.7,
+        "r2": 0.875,
+        "median_ape_pct": 11.5
+      },
+      "gbm_lr0.06_l15": {
+        "n": 2432,
+        "mae": 46207.0,
+        "rmse": 73324.0,
+        "r2": 0.872,
+        "median_ape_pct": 11.5
+      }
+    },
+    "test_all_candidates": {
+      "regional": {
+        "n": 342,
+        "mae": 41438.6,
+        "rmse": 61728.6,
+        "r2": 0.868,
+        "median_ape_pct": 11.3
+      },
+      "hedonic": {
+        "n": 342,
+        "mae": 40250.9,
+        "rmse": 57766.0,
+        "r2": 0.884,
+        "median_ape_pct": 11.5
+      },
+      "gbm_lr0.03_l7": {
+        "n": 342,
+        "mae": 41948.0,
+        "rmse": 61613.8,
+        "r2": 0.868,
+        "median_ape_pct": 11.6
+      }
+    },
+    "test_chosen": {
+      "n": 342,
+      "mae": 40250.9,
+      "rmse": 57766.0,
+      "r2": 0.884,
+      "median_ape_pct": 11.5
+    },
+    "interval_80": {
+      "coverage": 0.807,
+      "median_width_pct": 43.2
+    },
+    "protocol_note": "v1.1: selection moved from a single validation split to grouped CV after the first test run showed the validation-selected GBM under-performing the baseline on test.",
+    "current_value_vs_truth_median_ape_pct": 9.3,
+    "current_value_homes": 390,
+    "hedonic_premiums_vs_planted": {
+      "A": {
+        "n_sales": 12,
+        "premium_pct": 0.97,
+        "p10": -10.61,
+        "p90": 10.29,
+        "planted_pct": 5.0
+      },
+      "B": {
+        "n_sales": 44,
+        "premium_pct": 5.45,
+        "p10": 1.71,
+        "p90": 8.87,
+        "planted_pct": 4.0
+      },
+      "C": {
+        "n_sales": 710,
+        "premium_pct": 3.38,
+        "p10": 1.86,
+        "p90": 4.75,
+        "planted_pct": 1.8
+      },
+      "D": {
+        "n_sales": 1119,
+        "premium_pct": 0.0,
+        "p10": 0.0,
+        "p90": 0.0,
+        "planted_pct": 0.0
+      },
+      "E": {
+        "n_sales": 346,
+        "premium_pct": -0.74,
+        "p10": -2.33,
+        "p90": 0.68,
+        "planted_pct": -1.0
+      },
+      "F": {
+        "n_sales": 94,
+        "premium_pct": 1.01,
+        "p10": -1.9,
+        "p90": 3.51,
+        "planted_pct": -2.5
+      },
+      "G": {
+        "n_sales": 34,
+        "premium_pct": -5.32,
+        "p10": -9.92,
+        "p90": -1.34,
+        "planted_pct": -6.0
+      }
+    }
+  },
+  "score": {
+    "homes": 396,
+    "point_scores": 363,
+    "score_mae_vs_true_inputs": 1.3,
+    "band_agreement": 0.909,
+    "complete_only_mae": 0.53,
+    "partial_homes": 33,
+    "partial_range_coverage": 0.97
+  },
+  "ranking": {
+    "poor_homes_ranked": 123,
+    "top_k": 25,
+    "methods": {
+      "greeniq_improvement_potential": {
+        "spearman_vs_true_potential": 0.912,
+        "top20pct_precision": 0.72,
+        "spearman_with_floor_area": 0.539
+      },
+      "baseline_total_kwh (big-house trap)": {
+        "spearman_vs_true_potential": 0.606,
+        "top20pct_precision": 0.56,
+        "spearman_with_floor_area": 0.762
+      },
+      "baseline_worst_epc_first": {
+        "spearman_vs_true_potential": -0.005,
+        "top20pct_precision": 0.16,
+        "spearman_with_floor_area": 0.223
+      },
+      "baseline_intensity": {
+        "spearman_vs_true_potential": 0.204,
+        "top20pct_precision": 0.28,
+        "spearman_with_floor_area": -0.318
+      }
+    },
+    "true_potential_spearman_with_floor_area": 0.474
+  },
+  "feasibility": {
+    "recommended": 1299,
+    "violations": 75,
+    "violations_flagged_for_survey": 66,
+    "truly_feasible": 1256,
+    "found": 1224,
+    "violation_rate": 0.0577,
+    "recall": 0.975,
+    "by_measure": {
+      "loft_insulation": {
+        "recommended": 186,
+        "violations": 23,
+        "truly_feasible": 167,
+        "found": 163
+      },
+      "cavity_wall_insulation": {
+        "recommended": 76,
+        "violations": 19,
+        "truly_feasible": 59,
+        "found": 57
+      },
+      "solid_wall_insulation": {
+        "recommended": 71,
+        "violations": 0,
+        "truly_feasible": 76,
+        "found": 71
+      },
+      "glazing_upgrade": {
+        "recommended": 219,
+        "violations": 8,
+        "truly_feasible": 218,
+        "found": 211
+      },
+      "air_source_heat_pump": {
+        "recommended": 306,
+        "violations": 12,
+        "truly_feasible": 299,
+        "found": 294
+      },
+      "solar_pv": {
+        "recommended": 205,
+        "violations": 7,
+        "truly_feasible": 203,
+        "found": 198
+      },
+      "smart_controls": {
+        "recommended": 236,
+        "violations": 6,
+        "truly_feasible": 234,
+        "found": 230
+      }
+    }
+  },
+  "ms_per_home_with_models": 2.8,
+  "rating": {
+    "homes": 328,
+    "rating_model": {
+      "n": 328,
+      "mae": 4.4,
+      "rmse": 5.8,
+      "r2": 0.794,
+      "median_ape_pct": 5.4,
+      "band_accuracy": 0.634
+    },
+    "peer_median_baseline": {
+      "n": 328,
+      "mae": 7.3,
+      "rmse": 11.3,
+      "r2": 0.223,
+      "median_ape_pct": 7.0,
+      "band_accuracy": 0.576
+    }
+  },
+  "conflicts": {
+    "heating_record_errors_planted": 24,
+    "detected": 22,
+    "false_alarms": 0,
+    "precision": 1.0,
+    "recall": 0.917
+  },
+  "validation_card": {
+    "energy": {
+      "rows": {
+        "train": 1984,
+        "validation": 420
+      },
+      "fuels": {
+        "electricity": {
+          "validation": {
+            "peer": {
+              "n": 420,
+              "mae": 1247.8,
+              "rmse": 2195.6,
+              "r2": 0.802,
+              "median_ape_pct": 21.7
+            },
+            "physics": {
+              "n": 420,
+              "mae": 1072.0,
+              "rmse": 1507.8,
+              "r2": 0.907,
+              "median_ape_pct": 21.2
+            },
+            "gbm": {
+              "n": 420,
+              "mae": 1026.4,
+              "rmse": 1599.6,
+              "r2": 0.895,
+              "median_ape_pct": 18.7
+            }
+          },
+          "gbm_params": {
+            "learning_rate": 0.03,
+            "max_leaf_nodes": 15,
+            "max_iter": 200
+          },
+          "grid_size": 18
+        },
+        "gas": {
+          "validation": {
+            "peer": {
+              "n": 420,
+              "mae": 3045.5,
+              "rmse": 5047.3,
+              "r2": 0.656,
+              "median_ape_pct": 23.3
+            },
+            "physics": {
+              "n": 420,
+              "mae": 1977.4,
+              "rmse": 3259.7,
+              "r2": 0.857,
+              "median_ape_pct": 15.2
+            },
+            "gbm": {
+              "n": 420,
+              "mae": 1963.3,
+              "rmse": 3236.0,
+              "r2": 0.859,
+              "median_ape_pct": 14.5
+            }
+          },
+          "gbm_params": {
+            "learning_rate": 0.03,
+            "max_leaf_nodes": 15,
+            "max_iter": 200
+          },
+          "grid_size": 18
+        }
+      },
+      "promoted": {
+        "electricity": "gbm",
+        "gas": "gbm"
+      }
+    },
+    "calibration": {
+      "uncalibrated": {
+        "n": 77,
+        "mae_electricity": 170.9,
+        "mae_gas": 350.6,
+        "mae_total": 521.5
+      },
+      "calibrated": {
+        "n": 77,
+        "mae_electricity": 153.0,
+        "mae_gas": 272.3,
+        "mae_total": 425.3
+      }
+    },
+    "calibration_rates": {
+      "air_source_heat_pump": {
+        "rate": 0.922,
+        "raw_rate": 0.9,
+        "n_train": 35
+      },
+      "cavity_wall_insulation": {
+        "rate": 0.635,
+        "raw_rate": 0.5,
+        "n_train": 27
+      },
+      "glazing_upgrade": {
+        "rate": 0.842,
+        "raw_rate": 0.8,
+        "n_train": 38
+      },
+      "loft_insulation": {
+        "rate": 0.741,
+        "raw_rate": 0.7,
+        "n_train": 63
+      },
+      "smart_controls": {
+        "rate": 0.91,
+        "raw_rate": 0.9,
+        "n_train": 93
+      },
+      "solar_pv": {
+        "rate": 1.0,
+        "raw_rate": 1.0,
+        "n_train": 49
+      },
+      "solid_wall_insulation": {
+        "rate": 0.869,
+        "raw_rate": 0.65,
+        "n_train": 6
+      }
+    }
+  }
+}

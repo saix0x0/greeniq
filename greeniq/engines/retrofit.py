@@ -209,6 +209,12 @@ def plan_candidates(
                               "(they do not reduce demand).",
             [f"Roof orientation: {orient or 'unknown'}", f"Shading: {shade or 'unknown'}"], unc, depends=hp_dep)
 
+    # --- Unknown listed/conservation status gates several measures ---------------------------
+    if p.listed_or_conservation is None:
+        for c in cands:
+            if c.measure_id in ("solar_pv", "solid_wall_insulation", "glazing_upgrade"):
+                c.uncertainty.append("Listed-building / conservation-area status not recorded; consent may be needed.")
+
     # --- Customer memory: completed and declined measures -----------------------------------
     final, out_excl = [], list(excl)
     for c in cands:

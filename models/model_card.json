@@ -1,0 +1,283 @@
+{
+  "version": "greeniq-models/1.0",
+  "git_commit": "98f4eb8",
+  "seed": 20261010,
+  "feature_version": "features/1.0",
+  "features": [
+    "region",
+    "property_type",
+    "flat_position",
+    "wall_type",
+    "heating_system",
+    "roof_orientation",
+    "glazing",
+    "controls",
+    "age_index",
+    "floor_area_m2",
+    "wall_insulated",
+    "loft_insulation_mm",
+    "floor_insulated",
+    "boiler_age_years",
+    "has_gas_connection",
+    "solar_pv_kwp",
+    "sap",
+    "listed_or_conservation",
+    "outdoor_space",
+    "physics_hlc",
+    "physics_hlc_per_m2"
+  ],
+  "leakage_controls": [
+    "features read only recorded characteristics (never meters, prices or current value)",
+    "splits by customer (hash); fit on train, tune and promote on validation; test untouched",
+    "value features use the SAP in force at the sale, not today's"
+  ],
+  "split_counts": {
+    "train": 2146,
+    "validation": 453,
+    "test": 401
+  },
+  "energy": {
+    "rows": {
+      "train": 1984,
+      "validation": 420
+    },
+    "fuels": {
+      "electricity": {
+        "validation": {
+          "peer": {
+            "n": 420,
+            "mae": 1247.8,
+            "rmse": 2195.6,
+            "r2": 0.802,
+            "median_ape_pct": 21.7
+          },
+          "physics": {
+            "n": 420,
+            "mae": 1072.0,
+            "rmse": 1507.8,
+            "r2": 0.907,
+            "median_ape_pct": 21.2
+          },
+          "gbm": {
+            "n": 420,
+            "mae": 1026.4,
+            "rmse": 1599.6,
+            "r2": 0.895,
+            "median_ape_pct": 18.7
+          }
+        },
+        "gbm_params": {
+          "learning_rate": 0.03,
+          "max_leaf_nodes": 15,
+          "max_iter": 200
+        },
+        "grid_size": 18
+      },
+      "gas": {
+        "validation": {
+          "peer": {
+            "n": 420,
+            "mae": 3045.5,
+            "rmse": 5047.3,
+            "r2": 0.656,
+            "median_ape_pct": 23.3
+          },
+          "physics": {
+            "n": 420,
+            "mae": 1977.4,
+            "rmse": 3259.7,
+            "r2": 0.857,
+            "median_ape_pct": 15.2
+          },
+          "gbm": {
+            "n": 420,
+            "mae": 1963.3,
+            "rmse": 3236.0,
+            "r2": 0.859,
+            "median_ape_pct": 14.5
+          }
+        },
+        "gbm_params": {
+          "learning_rate": 0.03,
+          "max_leaf_nodes": 15,
+          "max_iter": 200
+        },
+        "grid_size": 18
+      }
+    },
+    "promoted": {
+      "electricity": "gbm",
+      "gas": "gbm"
+    }
+  },
+  "calibration": {
+    "rates": {
+      "air_source_heat_pump": {
+        "rate": 0.922,
+        "raw_rate": 0.9,
+        "n_train": 35
+      },
+      "cavity_wall_insulation": {
+        "rate": 0.635,
+        "raw_rate": 0.5,
+        "n_train": 27
+      },
+      "glazing_upgrade": {
+        "rate": 0.842,
+        "raw_rate": 0.8,
+        "n_train": 38
+      },
+      "loft_insulation": {
+        "rate": 0.741,
+        "raw_rate": 0.7,
+        "n_train": 63
+      },
+      "smart_controls": {
+        "rate": 0.91,
+        "raw_rate": 0.9,
+        "n_train": 93
+      },
+      "solar_pv": {
+        "rate": 1.0,
+        "raw_rate": 1.0,
+        "n_train": 49
+      },
+      "solid_wall_insulation": {
+        "rate": 0.869,
+        "raw_rate": 0.65,
+        "n_train": 6
+      }
+    },
+    "shrinkage_k": 10,
+    "grid": [
+      0.3,
+      1.5,
+      25
+    ],
+    "train_cases": 320,
+    "validation_cases": 78,
+    "skipped_train": {
+      "insufficient_meters": 24,
+      "not_in_split": 154
+    },
+    "validation": {
+      "uncalibrated": {
+        "n": 77,
+        "mae_electricity": 170.9,
+        "mae_gas": 350.6,
+        "mae_total": 521.5
+      },
+      "calibrated": {
+        "n": 77,
+        "mae_electricity": 153.0,
+        "mae_gas": 272.3,
+        "mae_total": 425.3
+      }
+    },
+    "promoted": true
+  },
+  "value": {
+    "sales_dev": 2432,
+    "selection": "customer-grouped 5-fold CV over train+validation (median APE)",
+    "cv": {
+      "regional": {
+        "n": 2432,
+        "mae": 45313.5,
+        "rmse": 71232.1,
+        "r2": 0.879,
+        "median_ape_pct": 11.3
+      },
+      "hedonic": {
+        "n": 2432,
+        "mae": 43701.8,
+        "rmse": 67133.5,
+        "r2": 0.893,
+        "median_ape_pct": 11.0
+      },
+      "gbm_lr0.03_l7": {
+        "n": 2432,
+        "mae": 45345.6,
+        "rmse": 72578.0,
+        "r2": 0.875,
+        "median_ape_pct": 11.3
+      },
+      "gbm_lr0.03_l15": {
+        "n": 2432,
+        "mae": 45838.6,
+        "rmse": 73481.0,
+        "r2": 0.871,
+        "median_ape_pct": 11.4
+      },
+      "gbm_lr0.06_l7": {
+        "n": 2432,
+        "mae": 45649.4,
+        "rmse": 72574.7,
+        "r2": 0.875,
+        "median_ape_pct": 11.5
+      },
+      "gbm_lr0.06_l15": {
+        "n": 2432,
+        "mae": 46207.0,
+        "rmse": 73324.0,
+        "r2": 0.872,
+        "median_ape_pct": 11.5
+      }
+    },
+    "chosen": "hedonic",
+    "chosen_kind": "hedonic",
+    "conformal": {
+      "coverage": 0.8,
+      "q_lo": -0.2135,
+      "q_hi": 0.2146,
+      "source": "out-of-fold residuals of the chosen model"
+    },
+    "hedonic": {
+      "A": {
+        "n_sales": 12,
+        "premium_pct": 0.97,
+        "p10": -10.61,
+        "p90": 10.29
+      },
+      "B": {
+        "n_sales": 44,
+        "premium_pct": 5.45,
+        "p10": 1.71,
+        "p90": 8.87
+      },
+      "C": {
+        "n_sales": 710,
+        "premium_pct": 3.38,
+        "p10": 1.86,
+        "p90": 4.75
+      },
+      "D": {
+        "n_sales": 1119,
+        "premium_pct": 0.0,
+        "p10": 0.0,
+        "p90": 0.0
+      },
+      "E": {
+        "n_sales": 346,
+        "premium_pct": -0.74,
+        "p10": -2.33,
+        "p90": 0.68
+      },
+      "F": {
+        "n_sales": 94,
+        "premium_pct": 1.01,
+        "p10": -1.9,
+        "p90": 3.51
+      },
+      "G": {
+        "n_sales": 34,
+        "premium_pct": -5.32,
+        "p10": -9.92,
+        "p90": -1.34
+      }
+    },
+    "hedonic_reference_band": "D",
+    "bootstrap_draws": 300,
+    "protocol_note": "v1.1: selection moved from a single validation split to grouped CV after the first test run showed the validation-selected GBM under-performing the baseline on test."
+  },
+  "training_seconds": 51.8
+}

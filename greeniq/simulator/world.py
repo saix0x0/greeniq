@@ -19,6 +19,7 @@ real-world accuracy. Every constant below is disclosed in ``data/DATA_CARD.md``.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 
@@ -470,9 +471,19 @@ def generate_world(n_properties: int = 3000, seed: int = 42) -> World:
                     measure = _choice(rng, options)
                     install = INSTALL_WINDOW[int(rng.integers(0, len(INSTALL_WINDOW)))]
                     s = apply_measure(s, h, measure)
-                    if measure == "air_source_heat_pump" and not s["has_gas"]:
-                        pass
-                    retro_rows.append(dict(property_id=pid, measure_id=measure, install_month=str(install)))
+                    # what the installer recorded about the home before the work
+                    before = {
+                        "loft_insulation": {"loft_insulation_mm": s_before["loft_mm"]},
+                        "cavity_wall_insulation": {"wall_insulated": False},
+                        "solid_wall_insulation": {"wall_insulated": False},
+                        "glazing_upgrade": {"glazing": s_before["glazing"]},
+                        "air_source_heat_pump": {"heating_system": s_before["heating_system"],
+                                                 "boiler_age_years": s_before["boiler_age"]},
+                        "solar_pv": {"solar_pv_kwp": 0.0},
+                        "smart_controls": {"controls": s_before["controls"]},
+                    }[measure]
+                    retro_rows.append(dict(property_id=pid, measure_id=measure, install_month=str(install),
+                                           before_json=json.dumps(before)))
 
             # EPC lodged some time 2010-2025; stale if lodged before the retrofit.
             epc_year = int(rng.integers(2010, 2026))
@@ -524,7 +535,7 @@ def generate_world(n_properties: int = 3000, seed: int = 42) -> World:
         weather_normals=pd.DataFrame(normals_rows),
         sales=pd.DataFrame(sales_rows),
         market_index=market_index,
-        retrofit_history=pd.DataFrame(retro_rows, columns=["property_id", "measure_id", "install_month"]),
+        retrofit_history=pd.DataFrame(retro_rows, columns=["property_id", "measure_id", "install_month", "before_json"]),
         hidden=pd.DataFrame(hidden_rows),
     )
 
