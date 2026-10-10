@@ -1,5 +1,14 @@
 # GreenIQ — Green Home Score & Retrofit Recommendation Engine
 
+> ## 🔄 Live status (updated as work happens)
+> **Built and tested:** score, ranking, retrofits, per-fuel savings, carbon, value range, Next Best Action,
+> API + dashboard + Decision Lab, grounding gate, what-if assistant, local-LLM support (llama.cpp / Ollama /
+> free hosted / Claude). 177 tests pass; 0 violations in a 28,422-check sweep.
+> **Now:** moving the ML onto **real data** (DESNZ NEED, 50,000 real homes). Steps R1–R8, about 9–11 h of build time.
+> **Read this first:** [`docs/STATUS_AND_PLAN.md`](docs/STATUS_AND_PLAN.md) (what's real vs synthetic, what's
+> done, what's next, and a prompt to paste into ChatGPT for advice).
+
+
 **Our solution to Lloyds Problem Statement 2.** GreenIQ answers a homeowner's four
 questions: *How green is my home today? What should I improve? How much energy and
 carbon could I save? Could it increase my property's value?* It does this with numbers
