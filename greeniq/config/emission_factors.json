@@ -1,0 +1,30 @@
+{
+  "version": "desnz-2025/1.0",
+  "factors": {
+    "electricity": {
+      "value": 0.177,
+      "unit": "kg CO2e per kWh",
+      "applies_to": "Grid electricity imported (UK electricity generation, Scope 2, location-based)",
+      "year": 2025,
+      "source": "DESNZ, Greenhouse gas reporting: conversion factors 2025 (condensed set, 'UK electricity')",
+      "url": "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025",
+      "verification": "Derived. DESNZ's 2025 'major changes' document states UK electricity fell 15% vs 2024 (2024 factor 0.20705), giving approximately 0.177. Confirm the exact digits against the 2025 workbook before external publication."
+    },
+    "gas": {
+      "value": 0.18296,
+      "unit": "kg CO2e per kWh (gross calorific value)",
+      "applies_to": "Mains natural gas burned in the home (Scope 1)",
+      "year": 2025,
+      "source": "DESNZ, Greenhouse gas reporting: conversion factors 2025 (flat file, 'Natural gas', kWh gross CV)",
+      "url": "https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2025",
+      "verification": "Verified against the DESNZ 2025 flat file as mirrored by Climatiq (dataset 'Greenhouse gas reporting: conversion factors 2025')."
+    }
+  },
+  "conventions": [
+    "Carbon change = sum over fuels of (baseline kWh - after kWh) x factor. Positive = emissions reduced; negative = increased.",
+    "Electricity transmission and distribution losses (Scope 3) and well-to-tank emissions are excluded, consistently for both fuels.",
+    "Solar self-consumption avoids imports and so avoids their emissions; exported electricity is not credited (conservative).",
+    "The grid factor is an annual average. Marginal emissions of extra demand (e.g. a heat pump in winter) can differ.",
+    "DESNZ published 2026 factors with a significantly lower electricity factor; we use 2025 so that both fuels come from one consistent release. The factors are configuration, so updating is a one-line change."
+  ]
+}

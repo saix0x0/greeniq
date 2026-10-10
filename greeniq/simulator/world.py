@@ -404,8 +404,9 @@ def _observe(rng, s: dict, sap_recorded: float | None, epc_year: int | None, hp_
         listed_or_conservation=maybe(s["listed"], .10), outdoor_space=maybe(s["outdoor_space"], .15),
     )
     if sap_recorded is not None and rng.random() > .12:
-        rec["epc_band"] = sap_band(sap_recorded)
-        rec["sap_score"] = None if rng.random() < .05 else int(round(sap_recorded))
+        sap_int = int(round(sap_recorded))  # the certificate shows an integer; the band follows it
+        rec["epc_band"] = sap_band(sap_int)
+        rec["sap_score"] = None if rng.random() < .05 else sap_int
         rec["epc_year"] = epc_year
     if s["property_type"] == "flat" and rng.random() < .05:
         rec["flat_position"] = None

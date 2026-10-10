@@ -10,7 +10,7 @@ Monotonicity is guaranteed by construction and enforced by tests:
 
 from __future__ import annotations
 
-MAPPING_VERSION = "score-mappings/1.0"
+MAPPING_VERSION = "score-mappings/1.1"
 
 # --- PS2-fixed (not ours to change) -------------------------------------------------
 WEIGHTS: dict[str, float] = {
@@ -54,28 +54,29 @@ SAP_BANDS: list[tuple[int, str]] = [(92, "A"), (81, "B"), (69, "C"), (55, "D"), 
 
 # --- Consumption intensity (20%): annualised purchased energy per m² ----------------
 # kWh/m²/yr → sub-score. Decreasing: more energy per m² never scores higher.
+# Calibration anchor (v1.1): a typical UK home should land mid-'Moderate'.
 # Anchors: a typical UK dual-fuel home (11,500 kWh gas + 2,700 kWh electricity, Ofgem
 # TDCV) over ~90 m² is ≈158 kWh/m² and lands mid-scale; well-insulated heat-pump homes
 # run at ≈40-60 kWh/m²; poorly insulated older homes exceed 275.
 INTENSITY_KNOTS: list[tuple[float, float]] = [
-    (40.0, 100.0), (100.0, 75.0), (150.0, 55.0), (200.0, 38.0), (275.0, 18.0), (400.0, 0.0),
+    (40.0, 100.0), (100.0, 80.0), (150.0, 63.0), (200.0, 47.0), (275.0, 28.0), (400.0, 5.0), (500.0, 0.0),
 ]
 
 # --- Insulation (15%): walls, roof/loft and floor --------------------------------
 # Internal element weights. Elements that do not apply (no loft because another
 # dwelling is above; no ground floor in an upper flat) are dropped and the remaining
 # element weights are renormalised, so a flat is not penalised for a loft it lacks.
-INSULATION_ELEMENT_WEIGHTS: dict[str, float] = {"walls": 0.45, "loft": 0.35, "floor": 0.20}
+INSULATION_ELEMENT_WEIGHTS: dict[str, float] = {"walls": 0.50, "loft": 0.35, "floor": 0.15}
 # (wall_type, insulated) → score. Ordering within a wall type: insulated ≥ uninsulated.
 WALL_SCORES: dict[tuple[str, bool], float] = {
     ("solid", False): 0.0,     # U ≈ 2.1 W/m²K
-    ("cavity", False): 25.0,   # U ≈ 1.5
+    ("cavity", False): 30.0,   # U ≈ 1.5
     ("cavity", True): 80.0,    # U ≈ 0.5
     ("solid", True): 90.0,     # U ≈ 0.3 with internal/external wall insulation
 }
 # Loft insulation depth (mm) → score; 270 mm is the current recommended depth.
 LOFT_KNOTS: list[tuple[float, float]] = [
-    (0.0, 0.0), (25.0, 10.0), (50.0, 25.0), (100.0, 50.0), (150.0, 70.0), (200.0, 85.0), (270.0, 100.0),
+    (0.0, 0.0), (25.0, 10.0), (50.0, 25.0), (100.0, 55.0), (150.0, 75.0), (200.0, 90.0), (270.0, 100.0),
 ]
 FLOOR_SCORES: dict[bool, float] = {False: 0.0, True: 100.0}
 
@@ -103,7 +104,7 @@ BOILER_AGE_PENALTY_KNOTS: list[tuple[float, float]] = [(0.0, 0.0), (10.0, 0.0), 
 GLAZING_LADDER: list[tuple[str, float]] = [
     ("single", 0.0),
     ("secondary", 45.0),
-    ("double_pre_2002", 65.0),
+    ("double_pre_2002", 70.0),
     ("double_post_2002", 85.0),
     ("triple", 100.0),
 ]

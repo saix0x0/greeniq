@@ -16,8 +16,8 @@
 | **0** Audit & plan | Requirement matrix, architecture, decisions, risk register (this doc) | ✅ done |
 | **1** Contract + Green Home Score | Domain schema; 7 monotonic sub-scores; PS weights; bands; receipts; tests | ✅ done (36 tests green) |
 | **2** Data | Synthetic "world" simulator, monthly per-fuel meter data, sales, retrofit history, validation, customer-grouped splits, data card, golden fixtures | ✅ done (48 tests green) |
-| **3** Engines | Per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, conflicts, receipts | 🔄 next |
-| **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | ⬜ |
+| **3** Engines | Per-fuel energy, retrofit feasibility + sequencing, interactions, carbon, rating change, conflicts, receipts | ✅ done (74 tests green) |
+| **4** ML + evaluation | Energy models vs baselines, savings calibration, value model + ranges, ranking eval, held-out predictions, report | 🔄 next |
 | **5** API + persistence + memory | FastAPI, SQLite, scenarios, customer memory | ⬜ |
 | **6** Dashboard | One-port web app: score, fingerprint, plan, scenario lab, roadmap, portfolio, receipts | ⬜ |
 | **7** Grounded AI | Template narrator, grounding gate, Claude behind the gate, what-if assistant, groundedness eval | ⬜ |
@@ -29,6 +29,7 @@
 ```bash
 uv sync                      # create .venv with pinned dependencies (uv.lock)
 uv run greeniq generate      # rebuild data/ from the simulator (seed 42, ~6 s)
+uv run greeniq analyse P00007   # score, plan and package for one home (add --json for everything)
 uv run pytest                # run the test suite
 ```
 
@@ -71,10 +72,10 @@ The **Status** column is updated as phases land.
 | ID | Requirement | Where it is implemented | Proof (test / artifact) | Status |
 |---|---|---|---|---|
 | FR-1 | Green Home Score, 7 fixed weights, monotonic sub-scores, bands, contributions | `greeniq/score.py`, `greeniq/config/score_mappings.py` | `tests/test_score.py` (weights, bands, half-up rounding, property-based monotonicity) | ✅ engine done; wired into the pipeline in Phase 3 |
-| FR-2 | Flag Poor/Very poor, key issues, rank by improvement potential, per fuel, fair to big homes | `greeniq/engines/ranking.py` | ranking tests; "rank by total kWh" vs ours in eval | ⬜ |
-| FR-3 | Feasible retrofits only, H/M/L, reasons, interaction order | `greeniq/engines/retrofit.py`, `greeniq/config/retrofit_catalogue.json` | feasibility tests (flat ≠ loft/solar/ASHP), zero violations in eval | ⬜ |
-| FR-4 | Per retrofit and per package savings, elec and gas separate, negative savings, not a sum | `greeniq/engines/energy.py` | heat-pump test (elec ↑, gas ↓), package ≠ sum test | ⬜ |
-| FR-5 | ΔC = ΣΔE_f × EF_f with documented factors | `greeniq/engines/carbon.py`, `greeniq/config/emission_factors.json` | sign/unit tests | ⬜ |
+| FR-2 | Flag Poor/Very poor, key issues, rank by improvement potential, per fuel, fair to big homes | `greeniq/score.py` (flag + issues), `greeniq/pipeline.py` (potential); portfolio ranking in Phase 4 | zero/estimated baseline → unavailable tests; large-home fixture not poor | 🔄 potential done; ranking in Phase 4 |
+| FR-3 | Feasible retrofits only, H/M/L, reasons, interaction order | `greeniq/engines/retrofit.py`, `greeniq/config/retrofit_catalogue.json` | fixture feasibility tests, refused scenario test, fabric-before-heat-pump test | ✅ |
+| FR-4 | Per retrofit and per package savings, elec and gas separate, negative savings, not a sum | `greeniq/engines/energy.py`, `greeniq/pipeline.py` | heat-pump test (elec ↑, gas ↓), package ≠ sum, insulate-first beats heat-pump-first, solar cuts imports not demand | ✅ (calibration in Phase 4) |
+| FR-5 | ΔC = ΣΔE_f × EF_f with documented factors | `greeniq/engines/carbon.py`, `greeniq/config/emission_factors.json` | per-fuel/sign tests; carbon recomputes from displayed kWh | ✅ |
 | FR-6 | Value impact as an indicative, non-causal range | `greeniq/engines/value.py`, `greeniq/ml/value_model.py` | range tests, coverage in eval | ⬜ |
 | FR-7 | LLM explains computed facts only; what-if reruns engines first | `greeniq/trust/` (gate, narrator, assistant) | gate rejects invented numbers; what-if recompute test | ⬜ |
 | FR-8 | Customer dashboard | `greeniq/web/` served by `greeniq/api.py` | E2E smoke test | ⬜ |
@@ -201,3 +202,23 @@ flowchart LR
 - **Architecture guard:** a test fails if any product module imports the simulator or the hidden truth.
 - **Tests:** 48 passed. **Docs:** [`data/DATA_CARD.md`](../data/DATA_CARD.md).
 - **Next:** Phase 3, the deterministic engines (per-fuel energy, retrofit planner, carbon, rating change, conflicts) and the `analyse_home` pipeline.
+
+### 2026-10-10 · Phase 3: deterministic engines and the `analyse_home` pipeline
+- **Energy engine** (`engines/energy.py`, `engines/physics.py`): decomposes the *metered* baseline into end uses (reproduced to ±10 kWh), then applies measures **in sequence to one evolving state**. Results per fuel, standalone and in-package, with the interaction reported explicitly.
+  - Heat pump: gas −11,390 / electricity **+3,610** kWh standalone for the heat-pump candidate (negative electricity saving), and carbon still falls.
+  - Poor semi: package 22,170 kWh vs a sum of standalone savings of 31,250 → **interaction −9,080 kWh**.
+  - **Order matters where it physically should:** heat-pump SCOP is fixed at installation, so insulating first beats heat-pump-first (tested).
+  - Solar cuts imports, not demand, and is worth more after a heat pump (tested).
+- **Retrofit planner** (`engines/retrofit.py`): feasibility first; H/M/L with evidence and uncertainty; every non-recommended measure has a status and a reason; fabric → controls → heat pump → solar.
+- **Carbon** (`engines/carbon.py`): PS2 formula with DESNZ 2025 factors from config; computed from the displayed kWh, so anyone can recompute it from the screen.
+- **Rating** (`engines/rating.py`): SAP-2012-style estimate for missing EPCs, stale-EPC adjustment, and rating after the package (recorded + modelled change).
+- **Data quality** (`features/quality.py`): conflict detection (catches 22 of the 24 planted wrong heating records; flags 429 stale EPCs), confidence scoring, and ranked questions for missing inputs.
+- **Customer-memory hooks:** declined measures are excluded with a reason; completed ones update inputs.
+- **Robustness sweep:** all 3,000 homes analysed, **0 errors, 1.3 ms per home**.
+- **Two fixes from the sweep:**
+  1. A simulator bug derived the EPC band from the unrounded SAP (93 spurious mismatches → 0).
+  2. Score mappings re-calibrated (v1.1) to a stated anchor (a typical UK home lands in Moderate). v1.0 had put 42% of homes in Poor/Very poor; now 33%. The scoring doc records the change and why.
+- **CLI:** `uv run greeniq analyse <id>`.
+- **Tests:** 74 passed (all seven fixtures' documented behaviours plus PS2's scenario tests).
+- **Docs:** [`docs/METHODOLOGY.md`](METHODOLOGY.md), ADR-003 (simulated world), ADR-004 (energy method).
+- **Next:** Phase 4, the ML models (energy baseline, savings calibration, value), portfolio ranking, and the evaluation harness with held-out predictions.

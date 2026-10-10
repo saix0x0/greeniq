@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "1.1"  # 1.1: + retrofits_completed (additive)
 
 PropertyType = Literal["detached", "semi_detached", "terraced", "bungalow", "flat"]
 FlatPosition = Literal["ground", "mid", "top"]
@@ -38,6 +38,11 @@ Shading = Literal["low", "medium", "high"]
 EpcBand = Literal["A", "B", "C", "D", "E", "F", "G"]
 Fuel = Literal["electricity", "gas"]
 Region = Literal["london", "south_east", "south_west", "midlands", "north", "wales", "scotland"]
+MeasureId = Literal[
+    "loft_insulation", "cavity_wall_insulation", "solid_wall_insulation", "glazing_upgrade",
+    "smart_controls", "air_source_heat_pump", "solar_pv",
+]
+MEASURES: tuple[str, ...] = MeasureId.__args__
 
 FUELS: tuple[Fuel, ...] = ("electricity", "gas")
 AGE_BANDS: tuple[str, ...] = AgeBand.__args__  # oldest → newest
@@ -68,6 +73,22 @@ class MonthlyReading(BaseModel):
     @classmethod
     def _month_format(cls, v: str) -> str:
         if not _MONTH_RE.match(v):
+            raise ValueError("month must be formatted YYYY-MM")
+        return v
+
+
+class CompletedRetrofit(BaseModel):
+    """A measure already installed (from retrofit history or what the customer told us)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    measure_id: MeasureId
+    month: str | None = None
+
+    @field_validator("month")
+    @classmethod
+    def _month_format(cls, v: str | None) -> str | None:
+        if v is not None and not _MONTH_RE.match(v):
             raise ValueError("month must be formatted YYYY-MM")
         return v
 
@@ -108,7 +129,8 @@ class Property(BaseModel):
     listed_or_conservation: bool | None = None
     outdoor_space: bool | None = None
 
-    meter_readings: list[MonthlyReading] = Field(default_factory=list)
+    meter_readings: list[MonthlyReading] = Field(default_factory=list, max_length=600)
+    retrofits_completed: list[CompletedRetrofit] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
     def _structural_rules(self) -> "Property":

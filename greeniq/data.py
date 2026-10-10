@@ -135,6 +135,10 @@ class Dataset:
                                 for m, f, k in grp[["month", "fuel", "kwh"]].itertuples(index=False)]
         for row in self.tables["properties"].to_dict("records"):
             self._props[row["property_id"]] = row
+        self._retro: dict[str, list[dict]] = {}
+        for pid, measure, month in self.tables["retrofit_history"][["property_id", "measure_id", "install_month"]] \
+                .itertuples(index=False):
+            self._retro.setdefault(pid, []).append({"measure_id": measure, "month": month})
 
     @property
     def property_ids(self) -> list[str]:
@@ -151,11 +155,11 @@ class Dataset:
         return row
 
     def property(self, pid: str) -> Property:
-        return Property(**self.record(pid), meter_readings=self._reads.get(pid, []))
+        return Property(**self.record(pid), meter_readings=self._reads.get(pid, []),
+                        retrofits_completed=self._retro.get(pid, []))
 
     def retrofits(self, pid: str) -> list[dict]:
-        rh = self.tables["retrofit_history"]
-        return rh[rh["property_id"] == pid].to_dict("records")
+        return list(self._retro.get(pid, []))
 
 
 def load_dataset(root: Path = DATA_DIR) -> Dataset:

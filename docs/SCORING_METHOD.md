@@ -2,7 +2,7 @@
 
 > Code: [`greeniq/score.py`](../greeniq/score.py) · tables: [`greeniq/config/score_mappings.py`](../greeniq/config/score_mappings.py)
 > · input defaults: [`greeniq/features/resolve.py`](../greeniq/features/resolve.py) · tests: [`tests/test_score.py`](../tests/test_score.py)
-> · mapping version `score-mappings/1.0`
+> · mapping version `score-mappings/1.1`
 
 ## 1. Formula (fixed by PS2)
 
@@ -51,28 +51,28 @@ component is marked **estimated**.
 ### Energy consumption intensity (20%)
 Purchased energy per m² per year → sub-score, decreasing:
 
-| kWh/m²/yr | ≤ 40 | 100 | 150 | 200 | 275 | ≥ 400 |
-|---|---|---|---|---|---|---|
-| sub-score | 100 | 75 | 55 | 38 | 18 | 0 |
+| kWh/m²/yr | ≤ 40 | 100 | 150 | 200 | 275 | 400 | ≥ 500 |
+|---|---|---|---|---|---|---|---|
+| sub-score | 100 | 80 | 63 | 47 | 28 | 5 | 0 |
 
 Anchor: a typical UK dual-fuel home (Ofgem TDCV 11,500 kWh gas + 2,700 kWh electricity)
-of about 90 m² uses ≈158 kWh/m² and scores ≈52. **Because the input is per m², a large
+of about 90 m² uses ≈158 kWh/m² and scores ≈60. **Because the input is per m², a large
 home is never marked down for its size alone** (tested). Peer comparison ("homes like
 yours") is shown separately as insight, not mixed into the score.
 
 ### Insulation (15%)
-Weighted average of up to three elements (walls 45%, loft 35%, floor 20%). Elements that
+Weighted average of up to three elements (walls 50%, loft 35%, floor 15%). Elements that
 **do not apply** are dropped and the rest renormalised: a ground- or mid-floor flat has no
 loft, and a mid- or top-floor flat has no ground floor, so neither is penalised for them.
 
 | Walls | uninsulated | insulated |
 |---|---|---|
 | Solid | 0 (U≈2.1) | 90 (U≈0.3) |
-| Cavity | 25 (U≈1.5) | 80 (U≈0.5) |
+| Cavity | 30 (U≈1.5) | 80 (U≈0.5) |
 
 | Loft depth (mm) | 0 | 25 | 50 | 100 | 150 | 200 | ≥ 270 |
 |---|---|---|---|---|---|---|---|
-| sub-score | 0 | 10 | 25 | 50 | 70 | 85 | 100 |
+| sub-score | 0 | 10 | 25 | 55 | 75 | 90 | 100 |
 
 Floor: uninsulated 0, insulated 100.
 
@@ -96,7 +96,7 @@ draft (direct electric at 20 beat a 21-year-old non-condensing boiler), which is
 electric is 15.
 
 ### Windows and glazing (10%)
-Single 0 · secondary 45 · double (pre-2002) 65 · double (2002+) 85 · triple 100.
+Single 0 · secondary 45 · double (pre-2002) 70 · double (2002+) 85 · triple 100.
 
 ### Renewable energy (10%)
 Solar PV capacity: 0 kWp → 0 · 1 → 30 · 2 → 55 · 3 → 75 · ≥ 4 → 100 (≈4 kWp is a full
@@ -104,6 +104,18 @@ domestic array). Heat pumps are scored under heating only, so they are not count
 
 ### Smart energy management (5%)
 None 0 · programmer + thermostat 40 · + TRVs 60 · smart thermostat 80 · smart + zoning 100.
+
+## 2b. Calibration anchor (v1.0 → v1.1)
+
+PS2 fixes the weights; the sub-score tables are ours. We calibrated them to one stated
+anchor: **a typical UK home (Ofgem TDCV consumption, EPC D, condensing boiler, pre-2002
+double glazing, partly insulated, no solar) should land in "Moderate"**. Version 1.0 was
+harsher: 42% of the 3,000 dataset homes came out Poor/Very poor, and a typical EPC-D semi
+scored 47 (Poor). Version 1.1 softened the intensity curve, loft depths of 100-200 mm,
+unfilled cavities (25 → 30), pre-2002 double glazing (65 → 70) and the floor's weight within
+insulation (20% → 15%). Monotonicity is unchanged and still tested. Resulting distribution:
+Moderate 45% · Poor 32% · Very poor 1% · Good 13% · Highly efficient 1% · partial (no
+band) 8%. Many homes score low on *renewables* (10% weight) because most have no solar.
 
 ## 3. Inputs that influence more than one component (PS2 asks us to justify these)
 
