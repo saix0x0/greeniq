@@ -383,17 +383,19 @@ function paretoChart(pkgs, yKey) {
 function interactionHeatmap(inter, key) {
   if (!inter?.length) return `<p class="muted small">No measure pairs to compare for this home.</p>`;
   const ms = [...new Set(inter.flatMap((x) => [x.a, x.b]))];
+  const lbl = (m) => { const t = measureShort(m).replace(" insul.", ""); return t.charAt(0).toUpperCase() + t.slice(1); };
   const val = {}; inter.forEach((x) => { val[x.a + "|" + x.b] = x[key]; val[x.b + "|" + x.a] = x[key]; });
   const maxAbs = Math.max(...inter.map((x) => Math.abs(x[key])), 1);
-  const n = ms.length, cell = 52, lab = 92, W = lab + n * cell + 10, H = lab + n * cell + 10;
+  const n = ms.length, cell = 50, gL = 104, gT = 96, padR = 60, c = cell - 3;
+  const W = gL + n * cell + padR, H = gT + n * cell + 12;
   const color = (v) => v == null ? "var(--card-2)" : v > 0 ? `color-mix(in srgb, var(--good) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : v < 0 ? `color-mix(in srgb, var(--gas) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : "var(--card-2)";
   const unit = key === "score_points" ? " pts" : key === "carbon_kg" ? " kg" : " kWh";
   return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Retrofit interaction heatmap">
-    ${ms.map((mm, j) => `<text x="${lab + j * cell + cell / 2}" y="${lab - 6}" class="cmp-axis" transform="rotate(-35 ${lab + j * cell + cell / 2} ${lab - 6})" text-anchor="start">${esc(measureShort(mm))}</text>`).join("")}
-    ${ms.map((mr, i) => `<text x="${lab - 6}" y="${lab + i * cell + cell / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(measureShort(mr))}</text>
-      ${ms.map((mc, j) => { if (i === j) return `<rect x="${lab + j * cell}" y="${lab + i * cell}" width="${cell - 2}" height="${cell - 2}" rx="4" fill="var(--card-2)"/>`;
-        const v = val[mr + "|" + mc]; return `<rect x="${lab + j * cell}" y="${lab + i * cell}" width="${cell - 2}" height="${cell - 2}" rx="4" fill="${color(v)}"><title>${esc(measureShort(mr))} + ${esc(measureShort(mc))}: ${v == null ? "n/a" : (v > 0 ? "+" : "") + fmt(v, key === "carbon_kg" ? 0 : 1) + unit}</title></rect>
-        ${v != null && Math.abs(v) / maxAbs > 0.08 ? `<text x="${lab + j * cell + cell / 2 - 1}" y="${lab + i * cell + cell / 2 + 3}" class="cmp-cnt" style="fill:var(--ink)">${(v > 0 ? "+" : "") + fmt(v, 0)}</text>` : ""}`; }).join("")}`).join("")}
+    ${ms.map((mm, j) => { const cx = gL + j * cell + cell / 2; return `<text x="${cx}" y="${gT - 9}" class="cmp-axis" transform="rotate(-40 ${cx} ${gT - 9})" text-anchor="start">${esc(lbl(mm))}</text>`; }).join("")}
+    ${ms.map((mr, i) => `<text x="${gL - 9}" y="${gT + i * cell + cell / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(lbl(mr))}</text>
+      ${ms.map((mc, j) => { if (i === j) return `<rect x="${gL + j * cell}" y="${gT + i * cell}" width="${c}" height="${c}" rx="4" fill="var(--card-2)"/>`;
+        const v = val[mr + "|" + mc]; return `<rect x="${gL + j * cell}" y="${gT + i * cell}" width="${c}" height="${c}" rx="4" fill="${color(v)}"><title>${esc(lbl(mr))} + ${esc(lbl(mc))}: ${v == null ? "n/a" : (v > 0 ? "+" : "") + fmt(v, key === "carbon_kg" ? 0 : 1) + unit}</title></rect>
+        ${v != null && Math.abs(v) / maxAbs > 0.08 ? `<text x="${gL + j * cell + c / 2}" y="${gT + i * cell + c / 2 + 3}" class="cmp-cnt" style="fill:var(--ink)">${(v > 0 ? "+" : "") + fmt(v, 0)}</text>` : ""}`; }).join("")}`).join("")}
   </svg>
   <div class="cmp-legend"><span><i style="background:var(--good)"></i>Synergy (do together)</span><span><i style="background:var(--gas)"></i>Overlap (diminishing)</span><span><i style="background:var(--card-2)"></i>≈ no interaction</span></div>`;
 }
@@ -405,16 +407,16 @@ function sensitivityTornado(sens, key) {
   }).filter(Boolean).sort((a, b) => (b.hi - b.lo) - (a.hi - a.lo));
   if (!rows.length) return `<p class="muted small">No sensitivity variants available for this home.</p>`;
   const gmin = Math.min(...rows.map((r) => r.lo)), gmax = Math.max(...rows.map((r) => r.hi)), span = gmax - gmin || 1;
-  const W = 560, rowH = 34, m = { l: 150, r: 16, t: 8, b: 26 }, H = m.t + rows.length * rowH + m.b;
+  const W = 580, rowH = 50, m = { l: 14, r: 50, t: 6, b: 28 }, H = m.t + rows.length * rowH + m.b;
   const px = (v) => m.l + (v - gmin) / span * (W - m.l - m.r);
   const unit = key === "carbon_kg" ? " kg CO₂e" : " score pts";
   return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Sensitivity tornado">
-    ${rows.map((r, i) => { const y = m.t + i * rowH + 6; return `
-      <text x="${m.l - 8}" y="${y + 13}" class="cmp-axis" text-anchor="end">${esc(r.label)}${r.fragile ? ' <tspan fill="var(--warn)">⚠</tspan>' : ""}</text>
-      <rect x="${px(r.lo)}" y="${y}" width="${Math.max(px(r.hi) - px(r.lo), 2)}" height="20" rx="4" fill="${r.fragile ? "var(--warn)" : "var(--accent)"}" opacity=".85"><title>${esc(r.label)} (currently ${esc(r.current)}, ${esc(r.basis)}): output ranges ${fmt(r.lo, 0)}–${fmt(r.hi, 0)}${unit}</title></rect>
-      <text x="${px(r.lo) - 4}" y="${y + 14}" class="cmp-axis" text-anchor="end">${fmt(r.lo, 0)}</text>
-      <text x="${px(r.hi) + 4}" y="${y + 14}" class="cmp-axis" text-anchor="start">${fmt(r.hi, 0)}</text>`; }).join("")}
-    <text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 6}" class="cmp-axis" text-anchor="middle">Range of ${key === "carbon_kg" ? "package carbon saving" : "score"} as each assumed input varies</text>
+    ${rows.map((r, i) => { const yTop = m.t + i * rowH; const yBar = yTop + 20; const bl = px(r.lo), bw = Math.max(px(r.hi) - bl, 2); return `
+      <text x="${m.l}" y="${yTop + 12}" class="cmp-axis" text-anchor="start" style="fill:var(--ink-2)">${esc(r.label)}${r.fragile ? ' <tspan fill="var(--warn)">⚠ a survey would resolve this</tspan>' : ""}</text>
+      <rect x="${bl}" y="${yBar}" width="${bw}" height="16" rx="4" fill="${r.fragile ? "var(--warn)" : "var(--accent)"}" opacity=".9"><title>${esc(r.label)} (currently ${esc(r.current)}, ${esc(r.basis)}): output ranges ${fmt(r.lo, 0)}–${fmt(r.hi, 0)}${unit}</title></rect>
+      ${bw > 48 ? `<text x="${bl + 6}" y="${yBar + 12}" class="cmp-cnt" style="fill:var(--accent-ink)" text-anchor="start">${fmt(r.lo, 0)}</text>` : ""}
+      <text x="${px(r.hi) + 5}" y="${yBar + 12}" class="cmp-axis" text-anchor="start">${fmt(r.hi, 0)}</text>`; }).join("")}
+    <text x="${m.l + (W - m.l - m.r) / 2}" y="${H - 7}" class="cmp-axis" text-anchor="middle">Range of ${key === "carbon_kg" ? "package carbon saving" : "score"} as each assumed input varies</text>
   </svg>
   <div class="cmp-legend"><span><i style="background:var(--warn)"></i>Fragile — a survey would resolve it</span><span class="muted">Wider bar = the result depends more on this input</span></div>`;
 }
@@ -423,21 +425,23 @@ function sankey(flows, caption) {
   if (!flows?.length) return `<p class="muted small">No energy-flow breakdown for this home.</p>`;
   const srcs = [...new Set(flows.map((f) => f.source))], tgts = [...new Set(flows.map((f) => f.target))];
   const total = flows.reduce((a, f) => a + f.kwh, 0) || 1;
-  const W = 560, H = Math.max(160, Math.max(srcs.length, tgts.length) * 46), m = { t: 10, b: 10 }, nodeW = 13, gap = 6;
+  const nRows = Math.max(srcs.length, tgts.length);
+  const W = 600, H = Math.max(150, nRows * 44), m = { t: 10, b: 10, l: 104, r: 132 }, nodeW = 12, gap = 8;
   const plotH = H - m.t - m.b;
   const srcTot = {}, tgtTot = {}; flows.forEach((f) => { srcTot[f.source] = (srcTot[f.source] || 0) + f.kwh; tgtTot[f.target] = (tgtTot[f.target] || 0) + f.kwh; });
-  const scale = (plotH - gap * (Math.max(srcs.length, tgts.length) - 1)) / total;
+  const scale = (plotH - gap * (nRows - 1)) / total;
   const fuelCol = (s) => /elec|grid/i.test(s) ? "var(--elec)" : /gas/i.test(s) ? "var(--gas)" : /solar/i.test(s) ? "var(--solar)" : "var(--accent)";
+  const xL = m.l, xR = W - m.r - nodeW;
   let sy = m.t; const sPos = {}; srcs.forEach((s) => { const h = srcTot[s] * scale; sPos[s] = { y: sy, h, off: 0 }; sy += h + gap; });
   let ty = m.t; const tPos = {}; tgts.forEach((t) => { const h = tgtTot[t] * scale; tPos[t] = { y: ty, h, off: 0 }; ty += h + gap; });
   const links = flows.map((f) => {
     const s = sPos[f.source], t = tPos[f.target], h = f.kwh * scale;
     const y0 = s.y + s.off + h / 2, y1 = t.y + t.off + h / 2; s.off += h; t.off += h;
-    const x0 = nodeW, x1 = W - nodeW, cx = (x0 + x1) / 2;
-    return `<path d="M${x0},${y0} C${cx},${y0} ${cx},${y1} ${x1},${y1}" stroke="${fuelCol(f.source)}" stroke-width="${Math.max(h, 1)}" fill="none" opacity=".32"><title>${esc(f.source)} → ${esc(f.target)}: ${kwh(f.kwh)}</title></path>`;
+    const x0 = xL + nodeW, x1 = xR, cx = (x0 + x1) / 2;
+    return `<path d="M${x0},${y0} C${cx},${y0} ${cx},${y1} ${x1},${y1}" stroke="${fuelCol(f.source)}" stroke-width="${Math.max(h, 1)}" fill="none" opacity=".3"><title>${esc(f.source)} → ${esc(f.target)}: ${kwh(f.kwh)}</title></path>`;
   }).join("");
-  const nodes = srcs.map((s) => `<rect x="0" y="${sPos[s].y}" width="${nodeW}" height="${Math.max(sPos[s].h, 1)}" rx="2" fill="${fuelCol(s)}"/><text x="${nodeW + 5}" y="${sPos[s].y + sPos[s].h / 2 + 3}" class="cmp-axis" text-anchor="start">${esc(s)}</text>`).join("") +
-    tgts.map((t) => `<rect x="${W - nodeW}" y="${tPos[t].y}" width="${nodeW}" height="${Math.max(tPos[t].h, 1)}" rx="2" fill="var(--line-2)"/><text x="${W - nodeW - 5}" y="${tPos[t].y + tPos[t].h / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(t)}</text>`).join("");
+  const nodes = srcs.map((s) => `<rect x="${xL}" y="${sPos[s].y}" width="${nodeW}" height="${Math.max(sPos[s].h, 1)}" rx="2" fill="${fuelCol(s)}"/><text x="${xL - 6}" y="${sPos[s].y + sPos[s].h / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(s)}</text>`).join("") +
+    tgts.map((t) => `<rect x="${xR}" y="${tPos[t].y}" width="${nodeW}" height="${Math.max(tPos[t].h, 1)}" rx="2" fill="var(--line-2)"/><text x="${xR + nodeW + 6}" y="${tPos[t].y + tPos[t].h / 2 + 3}" class="cmp-axis" text-anchor="start">${esc(t)}</text>`).join("");
   return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="${esc(caption)}">${links}${nodes}</svg>`;
 }
 
