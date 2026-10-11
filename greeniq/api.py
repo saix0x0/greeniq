@@ -150,7 +150,7 @@ def create_app(service: GreenIQService | None = None) -> FastAPI:
                    property_type: str | None = None, disposition: str | None = None, poor_only: bool = False,
                    sort: str = "property_id", limit: int = 50, offset: int = 0, ids: str | None = None,
                    group_by: str | None = None, group: str | None = None, tier: str | None = None):
-        return svc().search(q, band, region, property_type, disposition, poor_only, sort, min(max(limit, 1), 500),
+        return svc().search(q, band, region, property_type, disposition, poor_only, sort, min(max(limit, 1), 3000),
                             max(offset, 0), ids, group_by, group, tier)
 
     @app.get("/api/properties/{property_id}")

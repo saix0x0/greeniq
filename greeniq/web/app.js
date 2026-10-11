@@ -102,7 +102,7 @@ const clearFacts = () => factsCache.clear();
 
 let HEALTH = null, PROPS = null, PORTFOLIO = null;
 async function getHealth() { return HEALTH || (HEALTH = await api("/api/health")); }
-async function getProps() { return PROPS || (PROPS = (await api("/api/properties?limit=500&sort=score")).items); }
+async function getProps() { return PROPS || (PROPS = (await api("/api/properties?limit=3000&sort=property_id")).items); }
 async function getPortfolio() { return PORTFOLIO || (PORTFOLIO = await api("/api/portfolio")); }
 
 // async render into a container with loading / error / retry
@@ -1019,6 +1019,7 @@ async function fillRanking() {
     return;
   } catch (e) { body.innerHTML = `<tr><td colspan="6"><div class="errbox">${esc(e.message)}</div></td></tr>`; }
 }
+const GHG_MAX = 48;
 const GHG = { q: "", band: "", sort: "score" };
 async function fillGrid() {
   const box = $("#ghg"); if (!box) return;
@@ -1027,8 +1028,8 @@ async function fillGrid() {
     const draw = () => {
       let rows = props.filter((p) => (!GHG.band || p.band === GHG.band) && (!GHG.q || p.property_id.toLowerCase().includes(GHG.q.toLowerCase())));
       rows.sort((a, b) => GHG.sort === "id" ? a.property_id.localeCompare(b.property_id) : GHG.sort === "potential" ? (b.potential_pct || 0) - (a.potential_pct || 0) : (a.score ?? 999) - (b.score ?? 999));
-      if ($("#ghg-count")) $("#ghg-count").textContent = `${rows.length} homes`;
-      box.innerHTML = rows.slice(0, 400).map((p) => `<div class="ghg-tile ${p.is_poor ? "poor-flag" : ""}" data-pick="${p.property_id}" style="--bc:${bandCol(p.band)}" title="${esc(p.property_id)} · ${esc(p.band || "Undetermined")} · ${esc(p.property_type || "")}">
+      if ($("#ghg-count")) $("#ghg-count").textContent = rows.length > GHG_MAX ? `showing ${GHG_MAX} of ${rows.length}` : `${rows.length} homes`;
+      box.innerHTML = rows.slice(0, GHG_MAX).map((p) => `<div class="ghg-tile ${p.is_poor ? "poor-flag" : ""}" data-pick="${p.property_id}" style="--bc:${bandCol(p.band)}" title="${esc(p.property_id)} · ${esc(p.band || "Undetermined")} · ${esc(p.property_type || "")}">
         <div class="ghg-score">${p.score ?? "–"}</div><div class="ghg-id">${esc(p.property_id)}</div>
         <div class="ghg-meta">${esc(p.property_type || "")} · ${fmt(p.floor_area_m2)}m²</div></div>`).join("") || `<p class="muted">No homes match.</p>`;
       $$("#ghg [data-pick]").forEach((el) => el.onclick = () => selectHome(el.dataset.pick));
@@ -1102,12 +1103,6 @@ async function boot() {
   $("#obj").value = S.objective;
   $("#label-toggle").setAttribute("aria-pressed", String(S.labels));
 
-  // health → llm pill + data status
-  getHealth().then((h) => {
-    const pill = $("#llm-pill"); const live = h.llm && !/no language model/.test(h.llm);
-    pill.textContent = live ? `AI: ${h.llm}` : "AI: checked template"; pill.classList.toggle("live", !!live);
-  }).catch(() => {});
-
   renderPropLabel();
 
   // global events (delegation)
@@ -1125,7 +1120,7 @@ async function boot() {
   $("#drawer-scrim").onclick = closeDrawer;
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeDrawer(); closePropPop(); } });
 
-  $("#obj").onchange = (e) => { S.objective = e.target.value; store.set("objective", S.objective); clearFacts(); route(); };
+  $("#obj").onchange = (e) => { S.objective = e.target.value; store.set("objective", S.objective); clearFacts(); toast(`Prioritising: ${OBJ_NAME[S.objective]}`); route(); };
   $("#label-toggle").onclick = () => { S.labels = !S.labels; store.set("labels", S.labels); $("#label-toggle").setAttribute("aria-pressed", String(S.labels)); route(); };
   $("#theme-toggle").onclick = () => { S.theme = S.theme === "dark" ? "light" : S.theme === "light" ? "system" : "dark"; store.set("theme", S.theme); applyTheme(); toast(`Theme: ${S.theme}`); };
 
