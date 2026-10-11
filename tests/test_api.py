@@ -21,6 +21,51 @@ def test_health_and_one_port_ui(client):
     assert client.get("/static/app.js").status_code == 200
 
 
+def test_dashboard_audit_numbers_reconcile_P00046(client):
+    """Lock the figures the lender dashboard shows for the audited home P00046
+    (all-electric, score 34 -> 82, heat-pump package). Every displayed number
+    must trace to the engine with the official weights and documented factors."""
+    f = client.get("/api/properties/P00046").json()["facts"]
+    sc, pkg, im = f["score"], f["package"], f["package"]["impact"]
+
+    # all-electric home: a heat pump cuts electricity, gas stays zero (fuel conversion)
+    assert f["baseline"]["gas"]["annual_kwh"] == 0
+    assert "air_source_heat_pump" in pkg["measures"]
+    assert im["gas"]["saving_kwh"] == 0
+    assert im["electricity"]["saving_kwh"] > 0  # resistance heating -> heat pump reduces electricity
+    assert im["electricity"]["after_kwh"] < im["electricity"]["baseline_kwh"]
+
+    # both scores are the weighted sum of the seven sub-scores (official weights)
+    wt = {c["key"]: c["weight"] for c in sc["components"]}
+    assert abs(sum(wt.values()) - 1.0) < 1e-9
+    now = sum(c["weight"] * c["sub_score"] for c in sc["components"])
+    assert round(now) == sc["score"]
+    after = sum(pkg["components_after"].values())  # already weighted contributions
+    assert round(after) == pkg["score_after"]
+
+    # carbon reconciles with documented per-fuel factors from /api/evidence
+    ev = client.get("/api/evidence").json()["emission_factors"]["factors"]
+    expect_kg = im["electricity"]["saving_kwh"] * ev["electricity"]["value"] + im["gas"]["saving_kwh"] * ev["gas"]["value"]
+    assert im["carbon"]["total_kg"] == pytest.approx(expect_kg, rel=0.02)
+
+
+def test_named_plans_reference_real_packages(client):
+    """Named plans must point at actual engine-evaluated packages; identical plans
+    (e.g. lowest-cost == best-value) are a legitimate tie, not fabricated distinct points."""
+    lab = client.get("/api/properties/P00046/lab?budget=15000&objective=value_for_money").json()
+    keys = {p["key"] for p in lab["packages"]}
+    for pl in lab["plans"]:
+        assert pl["package_key"] in keys  # every plan is a real package
+    # when two plans share a package_key their package results are identical by construction
+    by_key = {}
+    for pl in lab["plans"]:
+        by_key.setdefault(pl["package_key"], []).append(pl["id"])
+    for key, ids in by_key.items():
+        if len(ids) > 1:
+            pk = next(p for p in lab["packages"] if p["key"] == key)
+            assert pk["net_saving_kwh"] is not None  # same package -> same numbers, legitimately
+
+
 def test_portfolio_kpis_are_consistent_with_rows(client):
     p = client.get("/api/portfolio").json()
     assert sum(p["band_distribution"]["all"].values()) == p["n_homes"]

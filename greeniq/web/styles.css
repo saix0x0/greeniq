@@ -449,3 +449,11 @@ svg text { font-family: var(--font-body); }
 .dag-name { font-size: 12.5px; font-weight: 600; line-height: 1.15; color: var(--ink); }
 .dag-impact { font-size: 11px; color: var(--good); font-variant-numeric: tabular-nums; margin-top: auto; }
 .dag-excluded { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* sidebar nav with function descriptions */
+.nav a { align-items: flex-start; }
+.nav-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.nav-label { font-weight: 600; }
+.nav-desc { font-size: 10.5px; color: var(--ink-3); font-weight: 400; margin-top: 1px; white-space: normal; }
+.nav a.active .nav-desc { color: var(--ink-2); }
+.nav a .ico { margin-top: 1px; }

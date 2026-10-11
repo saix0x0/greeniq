@@ -183,16 +183,20 @@ async function renderAi(id, pid, scope) {
 }
 
 // ──────────────────────────────────────────────────────────── ROUTES
+// Navigation follows the PS2 brief's five questions, in order (§1.1–§1.5):
+// 1 score · 2 identify poor · 3 recommend · 4 savings & carbon · 5 value.
 const ROUTES = {
-  overview:     { group: "YOUR HOME", ico: "🏠", label: "Overview", needs: "home", render: pageOverview },
-  property:     { group: "YOUR HOME", ico: "📊", label: "Score Breakdown", needs: "home", render: pageProperty },
-  improvements: { group: "UPGRADES", ico: "🔧", label: "Recommended Upgrades", needs: "home", render: pageImprovements },
-  plans:        { group: "UPGRADES", ico: "⚖", label: "Compare Options", needs: "home", render: pagePlans },
-  advisor:      { group: "ADVISOR", ico: "✦", label: "AI Advisor", needs: "home", render: pageAdvisor },
-  lender:       { group: "PORTFOLIO", ico: "🏦", label: "Ranking", render: pageLender },
-  compare:      { group: "PORTFOLIO", ico: "🏘", label: "Compare Homes", needs: "home", render: pageCompareHomes },
-  methods:      { group: "TRUST", ico: "📑", label: "Methods & Evidence", render: pageMethods },
-  settings:     { group: "PREFERENCES", ico: "⚙", label: "Settings", render: pageSettings },
+  overview:     { group: "START HERE", ico: "🏠", label: "Overview", desc: "Everything at a glance", needs: "home", render: pageOverview },
+  property:     { group: "THE FIVE ANSWERS", ico: "①", label: "Green Home Score", desc: "How green is my home today?", needs: "home", render: pageProperty },
+  compare:      { group: "THE FIVE ANSWERS", ico: "②", label: "Efficiency & Peers", desc: "Is it poorly performing, and how does it compare?", needs: "home", render: pageCompareHomes },
+  improvements: { group: "THE FIVE ANSWERS", ico: "③", label: "Recommended Improvements", desc: "What should I improve, and in what order?", needs: "home", render: pageImprovements },
+  savings:      { group: "THE FIVE ANSWERS", ico: "④", label: "Savings & Carbon", desc: "How much energy and carbon could I save?", needs: "home", render: pageSavings },
+  value:        { group: "THE FIVE ANSWERS", ico: "⑤", label: "Property Value", desc: "Could it increase my property's value?", needs: "home", render: pageValuePage },
+  advisor:      { group: "TOOLS", ico: "✦", label: "AI Advisor", desc: "Ask anything — grounded in the engine", needs: "home", render: pageAdvisor },
+  plans:        { group: "TOOLS", ico: "⚖", label: "Compare Options", desc: "Build and compare retrofit plans", needs: "home", render: pagePlans },
+  lender:       { group: "PORTFOLIO", ico: "🏦", label: "Ranking", desc: "Identify poor homes across the stock", render: pageLender },
+  methods:      { group: "TRUST", ico: "📑", label: "Methods & Evidence", desc: "How every number is produced", render: pageMethods },
+  settings:     { group: "PREFERENCES", ico: "⚙", label: "Settings", desc: "Preferences", render: pageSettings },
 };
 
 function buildNav() {
@@ -200,7 +204,7 @@ function buildNav() {
   for (const [key, r] of Object.entries(ROUTES)) (groups[r.group] ||= []).push([key, r]);
   nav.innerHTML = Object.entries(groups).map(([g, items]) =>
     `<div class="nav-group">${esc(g)}</div>` +
-    items.map(([key, r]) => `<a href="#/${key}" data-route="${key}"><span class="ico">${r.ico}</span>${esc(r.label)}</a>`).join("")
+    items.map(([key, r]) => `<a href="#/${key}" data-route="${key}" title="${esc(r.desc || "")}"><span class="ico">${r.ico}</span><span class="nav-txt"><span class="nav-label">${esc(r.label)}</span>${r.desc ? `<span class="nav-desc">${esc(r.desc)}</span>` : ""}</span></a>`).join("")
   ).join("");
 }
 
@@ -336,7 +340,14 @@ async function pageCompareHomes() {
     api(`/api/properties/${encodeURIComponent(S.pid)}/standing`).catch(() => null),
     getPortfolio().catch(() => null),
   ]);
-  return `${pageHead("Compare Homes", `How <b>${esc(S.pid)}</b> stacks up against similar homes and the wider portfolio — the same engine, plus real DESNZ NEED peer medians.`)}
+  const sc = f.score;
+  return `${pageHead("Efficiency & Peers", `Is <b>${esc(S.pid)}</b> poorly performing, and how does it compare? PS2 flags Poor/Very-poor homes and ranks by improvement potential — here for this home, with real DESNZ NEED peer medians.`)}
+    <div class="card ${sc?.is_poor ? "" : ""}" style="margin-bottom:16px;border-left:4px solid ${sc?.is_poor ? "var(--bad)" : "var(--good)"}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        ${sc?.is_poor ? `<span class="pill act">Flagged: poor energy efficiency</span>` : `<span class="pill none">Not flagged as poor</span>`}
+        <div>${sc?.is_poor ? `This home is classified <b>${esc(sc.band)}</b> — in scope for retrofit under PS2 §3.` : `This home is <b>${esc(sc.band || "—")}</b> — above the poor-efficiency threshold.`} ${f.package?.improvement_potential?.pct != null ? `Improvement potential: <b>${pct(f.package.improvement_potential.pct)}</b> reduction in purchased energy.` : ""}</div>
+        <button class="btn sm" data-goto="lender" style="margin-left:auto">See the whole portfolio →</button>
+      </div></div>
     <div class="card" style="margin-bottom:16px"><div class="grid cols-3" style="gap:14px">
       <div class="stat"><span class="k">Energy intensity</span><span class="v sm">${fmt(f.intensity_kwh_m2?.value)}<span class="muted" style="font-size:13px"> kWh/m²</span></span><span class="foot">${tag(f.intensity_kwh_m2?.basis)} · the fair size-adjusted measure</span></div>
       <div class="stat"><span class="k">Peer group</span><span class="v sm" style="font-size:15px">${esc(f.peer?.peer_group || "—")}</span><span class="foot">${fmt((f.peer?.fuels || [])[0]?.n_peers)} real homes</span></div>
@@ -561,7 +572,7 @@ async function pageOverview() {
           <div class="stat"><span class="k">Purchased energy</span><span class="v sm delta good">−${pct(pkg.improvement_potential?.pct)}</span><span class="foot">${rc(kwh(pkg.impact?.net_saving_kwh), pkg.impact?.carbon?.receipt)} less a year</span></div>
           <div class="stat"><span class="k">Carbon</span><span class="v sm delta good">−${fmt(pkg.impact?.carbon?.total_tonnes, 2)} t</span><span class="foot">CO₂e a year</span></div>
           <div class="stat"><span class="k">Indicative value</span><span class="v sm">${val?.status === "available" && val.uplift_pct_range ? `+${pctRange(val.uplift_pct_range[0], val.uplift_pct_range[1])}` : "—"}</span><span class="foot">${val?.status === "available" ? "range, not a promise" : "no band change → no uplift"}</span></div>
-        </div><div class="btn-row" style="margin-top:12px"><button class="btn sm" data-goto="plans">Compare options</button><button class="btn sm ghost" data-goto="improvements">Energy &amp; carbon detail</button></div>`
+        </div><div class="btn-row" style="margin-top:12px"><button class="btn sm" data-goto="plans">Compare options</button><button class="btn sm ghost" data-goto="savings">Energy &amp; carbon detail</button></div>`
           : `<p class="muted">No feasible package for this home yet.</p>`}
       </div>
     </div>
@@ -619,7 +630,7 @@ async function pageProperty() {
     method: "Starts at 0.90; −0.04 per assumed/estimated component, −0.15 if a component can't be assessed, −0.2/−0.1/−0.03 per conflict, −0.2 if baseline is only estimated",
     method_version: "pipeline/_confidence", provider: "deterministic", notes: conf.reasons };
 
-  return `${pageHead("Score Breakdown", `Every input, every sub-score, and anything still unresolved for <b>${esc(S.pid)}</b>.`)}
+  return `${pageHead("Green Home Score", `How green is <b>${esc(S.pid)}</b> today — the score, its seven components, and anything still unresolved. ${sc.score != null ? `Score <b>${sc.score}/100</b> (${esc(sc.band)}).` : ""}`)}
 
   <div class="card pad-lg"><div class="hero-identity">
     <div class="score-hero">${scoreRing(sc.score, sc.band, sc.score_range)}<div><div>${bandChip(sc.band, sc.score)}</div><h2 style="margin-top:6px">${sc.score != null ? `${sc.score}/100` : (sc.score_range ? `${sc.score_range[0]}–${sc.score_range[1]}` : "—")}</h2>
@@ -638,7 +649,8 @@ async function pageProperty() {
     <div class="grid cols-2">
       <div class="card"><h3>Score profile — now vs after the plan</h3>
         <div class="card-sub">Each of the seven components, 0–100. The dashed outline is today; the filled shape is after the recommended upgrades. Dents point to where the home is weakest.</div>
-        ${scoreRadar(sc.components, f.package?.components_after)}</div>
+        ${scoreRadar(sc.components, f.package?.components_after)}
+        ${(sc.components.find((c) => c.key === "renewables")?.sub_score || 0) > 30 && !(f.package?.measures || []).includes("solar_pv") ? `<div class="readout">Renewables already score well — this home has existing solar, so the plan doesn't add more.</div>` : ""}</div>
       <div class="card"><h3>Biggest point gaps</h3>
         <div class="card-sub">Components losing the most against a perfect 100 — where the upgrades focus.</div>
         ${(sc.components || []).slice().sort((a, b) => (b.weight * (100 - b.sub_score)) - (a.weight * (100 - a.sub_score))).slice(0, 5).map((c) => { const gap = c.weight * (100 - c.sub_score); const max = Math.max(...sc.components.map((x) => x.weight * (100 - x.sub_score)), 1); return `<div class="comp-row" style="grid-template-columns:1.2fr 1fr auto;padding:8px 0"><div class="comp-name">${esc(c.label)}</div><div class="comp-bar"><div class="bar"><span style="width:${gap / max * 100}%;background:var(--bad)"></span></div></div><div class="comp-contrib">−${fmt(gap, 1)}<small>pts</small></div></div>`; }).join("")}</div>
@@ -733,7 +745,7 @@ async function answerQuestion(q) {
       role: "ai", by: ex?.mode === "llm" ? "Claude model" : "checked template", checked: true,
       paras: (ex?.sentences || []).map((s) => s.text),
       facts: facts.length ? facts : null,
-      links: [{ to: "plans", label: "Compare options" }, { to: "improvements", label: "Energy & carbon detail" }],
+      links: [{ to: "plans", label: "Compare options" }, { to: "savings", label: "Energy & carbon detail" }],
     };
   }
   // not a what-if — answer from the computed facts deterministically + show the gated score narration
@@ -808,13 +820,23 @@ async function pageImprovements() {
 
   <div class="section">${aiCard(S.pid, "package", "Why these improvements, in this order")}</div>
 
-  <div class="section"><h2>Energy &amp; carbon impact</h2>
-    <div class="card-sub" style="margin-bottom:12px">Electricity and gas tracked separately, baseline vs the recommended package, with the carbon that follows. A heat pump can raise electricity while cutting gas — shown honestly.</div>
-    ${energySection(f)}</div>
+  <div class="callout info" style="margin-top:4px">Next: see <button class="btn sm ghost" data-goto="savings">④ Savings &amp; Carbon</button> for the full per-fuel detail, and <button class="btn sm ghost" data-goto="value">⑤ Property Value</button>.</div>`;
+}
 
-  <div class="section"><h2>Indicative property value</h2>
-    <div class="card-sub" style="margin-bottom:12px">A range from historical EPC-band / sale-price relationships in our dataset — explicitly not a valuation, a guarantee, or proof that retrofitting causes a price rise.</div>
-    ${valueSection(f)}</div>`;
+// ── 4 · Savings & Carbon (PS2 step 4) ──
+async function pageSavings() {
+  const { facts: f } = await loadFacts(S.pid);
+  return `${pageHead("Savings & Carbon", `How much energy and carbon <b>${esc(S.pid)}</b> could save with the recommended package. Electricity and gas are tracked separately; a heat pump can raise electricity while cutting gas, shown honestly. Savings are estimates, not guarantees.`)}
+    ${energySection(f)}
+    <div class="section">${aiCard(S.pid, "package", "What these savings mean")}</div>`;
+}
+
+// ── 5 · Property Value (PS2 step 5) ──
+async function pageValuePage() {
+  const { facts: f } = await loadFacts(S.pid);
+  return `${pageHead("Property Value", `A <b>range</b>, not a single figure — from historical EPC-band / sale-price relationships in our dataset. Explicitly indicative: not a valuation, not a guarantee, and not proof that retrofitting causes a price rise.`)}
+    ${valueSection(f)}
+    <div class="section">${aiCard(S.pid, "package", "How to read this estimate")}</div>`;
 }
 
 // ── Compare Options (Decision Lab) ───────────────────────────
@@ -832,7 +854,11 @@ async function pagePlans() {
   <div class="card">
     <h3>Named plans</h3><div class="card-sub">Each is a real package the engine re-ran. Prioritising: <b>${esc(OBJ_NAME[S.objective])}</b>.</div>
     <div class="plan-grid" id="plan-grid">
-      ${lab.plans.map((pl) => { const pkg = lab.packages.find((p) => p.key === pl.package_key); return planCard(pl, pkg, measureName); }).join("")}
+      ${(() => { const byKey = {}; lab.plans.forEach((pl) => (byKey[pl.package_key] ||= []).push(pl));
+        return Object.entries(byKey).map(([key, pls]) => { const pkg = lab.packages.find((p) => p.key === key);
+          const merged = { title: pls.map((p) => p.title).join(" & "), definition: pls[0].definition, package_key: key,
+            note: pls.length > 1 ? `For this home the ${pls.map((p) => p.title.toLowerCase()).join(" and ")} objectives pick the same package.` : pls[0].note };
+          return planCard(merged, pkg, measureName); }).join(""); })()}
     </div>
   </div>
 
@@ -866,6 +892,7 @@ function drawTorn() { const el = $("#torn"); if (el && LAB) el.innerHTML = sensi
 function planCard(pl, pkg, names) {
   if (!pkg) return `<div class="plan-card"><h4>${esc(pl.title)}</h4><p class="muted small">${esc(pl.definition)}</p><p class="muted">No feasible package.</p></div>`;
   return `<div class="plan-card"><h4>${esc(pl.title)}</h4><div class="small muted" style="margin-bottom:8px">${esc(pl.definition)}</div>
+    ${pl.note ? `<div class="callout info small" style="margin-bottom:8px">${esc(pl.note)}</div>` : ""}
     <div class="plan-metric"><span>Measures</span><b>${pkg.measures.length}</b></div>
     <div class="plan-metric"><span>Cost</span><b class="num">${gbpK(pkg.cost_low)}–${gbpK(pkg.cost_high)}</b></div>
     <div class="plan-metric"><span>Electricity</span><b class="num">${pkg.electricity_saving_kwh >= 0 ? "−" : "+"}${kwh(Math.abs(pkg.electricity_saving_kwh))}</b></div>
