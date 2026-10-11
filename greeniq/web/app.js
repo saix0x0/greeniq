@@ -183,20 +183,36 @@ async function renderAi(id, pid, scope) {
 }
 
 // ──────────────────────────────────────────────────────────── ROUTES
+// Line icons (Lucide-style, MIT) — stroke inherits the nav colour.
+const ICONS = {
+  home: '<path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/><path d="M9 21v-6h6v6"/>',
+  gauge: '<path d="m13 13 3-3"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/>',
+  bars: '<line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="9"/>',
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/>',
+  trend: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  spark: '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/>',
+  nodes: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/>',
+  building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><path d="M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+};
+const icon = (name) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+
 // Navigation follows the PS2 brief's five questions, in order (§1.1–§1.5):
 // 1 score · 2 identify poor · 3 recommend · 4 savings & carbon · 5 value.
 const ROUTES = {
-  overview:     { group: "START HERE", ico: "🏠", label: "Overview", desc: "Everything at a glance", needs: "home", render: pageOverview },
-  property:     { group: "THE FIVE ANSWERS", ico: "①", label: "Green Home Score", desc: "How green is my home today?", needs: "home", render: pageProperty },
-  compare:      { group: "THE FIVE ANSWERS", ico: "②", label: "Efficiency & Peers", desc: "Is it poorly performing, and how does it compare?", needs: "home", render: pageCompareHomes },
-  improvements: { group: "THE FIVE ANSWERS", ico: "③", label: "Recommended Improvements", desc: "What should I improve, and in what order?", needs: "home", render: pageImprovements },
-  savings:      { group: "THE FIVE ANSWERS", ico: "④", label: "Savings & Carbon", desc: "How much energy and carbon could I save?", needs: "home", render: pageSavings },
-  value:        { group: "THE FIVE ANSWERS", ico: "⑤", label: "Property Value", desc: "Could it increase my property's value?", needs: "home", render: pageValuePage },
-  advisor:      { group: "TOOLS", ico: "✦", label: "AI Advisor", desc: "Ask anything — grounded in the engine", needs: "home", render: pageAdvisor },
-  plans:        { group: "TOOLS", ico: "⚖", label: "Compare Options", desc: "Build and compare retrofit plans", needs: "home", render: pagePlans },
-  lender:       { group: "PORTFOLIO", ico: "🏦", label: "Ranking", desc: "Identify poor homes across the stock", render: pageLender },
-  methods:      { group: "TRUST", ico: "📑", label: "Methods & Evidence", desc: "How every number is produced", render: pageMethods },
-  settings:     { group: "PREFERENCES", ico: "⚙", label: "Settings", desc: "Preferences", render: pageSettings },
+  overview:     { group: "START HERE", ico: "home", label: "Overview", desc: "Everything at a glance", needs: "home", render: pageOverview },
+  property:     { group: "THE FIVE ANSWERS", ico: "gauge", label: "Green Home Score", desc: "How green is my home today?", needs: "home", render: pageProperty },
+  compare:      { group: "THE FIVE ANSWERS", ico: "bars", label: "Efficiency & Peers", desc: "Is it poorly performing, and how does it compare?", needs: "home", render: pageCompareHomes },
+  improvements: { group: "THE FIVE ANSWERS", ico: "wrench", label: "Recommended Improvements", desc: "What should I improve, and in what order?", needs: "home", render: pageImprovements },
+  savings:      { group: "THE FIVE ANSWERS", ico: "leaf", label: "Savings & Carbon", desc: "How much energy and carbon could I save?", needs: "home", render: pageSavings },
+  value:        { group: "THE FIVE ANSWERS", ico: "trend", label: "Property Value", desc: "Could it increase my property's value?", needs: "home", render: pageValuePage },
+  advisor:      { group: "TOOLS", ico: "spark", label: "AI Advisor", desc: "Ask anything — grounded in the engine", needs: "home", render: pageAdvisor },
+  plans:        { group: "TOOLS", ico: "nodes", label: "Compare Options", desc: "Build and compare retrofit plans", needs: "home", render: pagePlans },
+  lender:       { group: "PORTFOLIO", ico: "building", label: "Ranking", desc: "Identify poor homes across the stock", render: pageLender },
+  methods:      { group: "TRUST", ico: "shield", label: "Methods & Evidence", desc: "How every number is produced", render: pageMethods },
+  settings:     { group: "PREFERENCES", ico: "gear", label: "Settings", desc: "Preferences", render: pageSettings },
 };
 
 function buildNav() {
@@ -204,7 +220,7 @@ function buildNav() {
   for (const [key, r] of Object.entries(ROUTES)) (groups[r.group] ||= []).push([key, r]);
   nav.innerHTML = Object.entries(groups).map(([g, items]) =>
     `<div class="nav-group">${esc(g)}</div>` +
-    items.map(([key, r]) => `<a href="#/${key}" data-route="${key}" title="${esc(r.desc || "")}"><span class="ico">${r.ico}</span><span class="nav-txt"><span class="nav-label">${esc(r.label)}</span>${r.desc ? `<span class="nav-desc">${esc(r.desc)}</span>` : ""}</span></a>`).join("")
+    items.map(([key, r]) => `<a href="#/${key}" data-route="${key}" title="${esc(r.desc || "")}"><span class="ico">${icon(r.ico)}</span><span class="nav-txt"><span class="nav-label">${esc(r.label)}</span>${r.desc ? `<span class="nav-desc">${esc(r.desc)}</span>` : ""}</span></a>`).join("")
   ).join("");
 }
 

@@ -456,4 +456,6 @@ svg text { font-family: var(--font-body); }
 .nav-label { font-weight: 600; }
 .nav-desc { font-size: 10.5px; color: var(--ink-3); font-weight: 400; margin-top: 1px; white-space: normal; }
 .nav a.active .nav-desc { color: var(--ink-2); }
-.nav a .ico { margin-top: 1px; }
+.nav a .ico { margin-top: 1px; display: inline-flex; width: 18px; height: 18px; flex: 0 0 auto; opacity: .85; }
+.nav a .ico svg { display: block; width: 18px; height: 18px; }
+.nav a:hover .ico, .nav a.active .ico { opacity: 1; }
