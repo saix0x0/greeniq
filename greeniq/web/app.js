@@ -252,7 +252,6 @@ function afterRender(root) {
   fill("#group-table", () => fillGroups("region"));
   fill("#custom-result", recomputeCustom);
   fill("#pareto", drawPareto);
-  fill("#heat", drawHeat);
   fill("#torn", drawTorn);
   if ($("#set-obj")) $("#set-obj").value = S.objective;
   if ($("#set-theme")) $("#set-theme").value = S.theme;
@@ -351,7 +350,7 @@ async function pageCompareHomes() {
 // All from the engine's /lab output (packages, interactions, sensitivity) and facts.flows.
 // No business logic recomputed; non-dominance is a geometric property of given points.
 let LAB = null;
-const LABKEY = { pareto: "carbon_kg", heat: "score_points", torn: "carbon_kg" };
+const LABKEY = { pareto: "carbon_kg", torn: "carbon_kg" };
 const PARETO_AXES = {
   carbon_kg: { label: "Carbon saved (kg CO₂e/yr)", fmt: (v) => fmt(v) + " kg", get: (p) => p.carbon_kg },
   net_saving_kwh: { label: "Net energy saved (kWh/yr)", fmt: (v) => kwh(v), get: (p) => p.net_saving_kwh },
@@ -380,24 +379,59 @@ function paretoChart(pkgs, yKey) {
   <div class="cmp-legend"><span><i style="background:var(--accent)"></i>Best-value frontier (non-dominated)</span><span><i style="background:var(--line-2)"></i>Dominated package</span><span class="muted">Click a point to load it below</span></div>`;
 }
 
-function interactionHeatmap(inter, key) {
-  if (!inter?.length) return `<p class="muted small">No measure pairs to compare for this home.</p>`;
-  const ms = [...new Set(inter.flatMap((x) => [x.a, x.b]))];
-  const lbl = (m) => { const t = measureShort(m).replace(" insul.", ""); return t.charAt(0).toUpperCase() + t.slice(1); };
-  const val = {}; inter.forEach((x) => { val[x.a + "|" + x.b] = x[key]; val[x.b + "|" + x.a] = x[key]; });
-  const maxAbs = Math.max(...inter.map((x) => Math.abs(x[key])), 1);
-  const n = ms.length, cell = 50, gL = 104, gT = 96, padR = 60, c = cell - 3;
-  const W = gL + n * cell + padR, H = gT + n * cell + 12;
-  const color = (v) => v == null ? "var(--card-2)" : v > 0 ? `color-mix(in srgb, var(--good) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : v < 0 ? `color-mix(in srgb, var(--gas) ${Math.min(100, Math.abs(v) / maxAbs * 85 + 10)}%, var(--card))` : "var(--card-2)";
-  const unit = key === "score_points" ? " pts" : key === "carbon_kg" ? " kg" : " kWh";
-  return `<svg viewBox="0 0 ${W} ${H}" class="cmp-svg" role="img" aria-label="Retrofit interaction heatmap">
-    ${ms.map((mm, j) => { const cx = gL + j * cell + cell / 2; return `<text x="${cx}" y="${gT - 9}" class="cmp-axis" transform="rotate(-40 ${cx} ${gT - 9})" text-anchor="start">${esc(lbl(mm))}</text>`; }).join("")}
-    ${ms.map((mr, i) => `<text x="${gL - 9}" y="${gT + i * cell + cell / 2 + 3}" class="cmp-axis" text-anchor="end">${esc(lbl(mr))}</text>
-      ${ms.map((mc, j) => { if (i === j) return `<rect x="${gL + j * cell}" y="${gT + i * cell}" width="${c}" height="${c}" rx="4" fill="var(--card-2)"/>`;
-        const v = val[mr + "|" + mc]; return `<rect x="${gL + j * cell}" y="${gT + i * cell}" width="${c}" height="${c}" rx="4" fill="${color(v)}"><title>${esc(lbl(mr))} + ${esc(lbl(mc))}: ${v == null ? "n/a" : (v > 0 ? "+" : "") + fmt(v, key === "carbon_kg" ? 0 : 1) + unit}</title></rect>
-        ${v != null && Math.abs(v) / maxAbs > 0.08 ? `<text x="${gL + j * cell + c / 2}" y="${gT + i * cell + c / 2 + 3}" class="cmp-cnt" style="fill:var(--ink)">${(v > 0 ? "+" : "") + fmt(v, 0)}</text>` : ""}`; }).join("")}`).join("")}
+// Retrofit Dependency Graph (DAG): the engine's ordered, interacting plan made visible.
+// Columns = stages (fabric → controls → heat → generation); arrows = "must come first".
+const STAGE_LABEL = { 1: "Fabric first", 2: "Controls", 3: "Low-carbon heat", 4: "Generation" };
+const SUIT_COL = { High: "var(--good)", Medium: "var(--warn)", Low: "var(--ink-3)" };
+function dependencyGraph(plan, excluded) {
+  if (!plan?.length) return `<p class="muted small">No feasible upgrades to sequence for this home.</p>`;
+  const stages = [...new Set(plan.map((p) => p.stage))].sort((a, b) => a - b);
+  const nodeW = 158, nodeH = 64, vGap = 16, colGap = 56, padT = 30;
+  const pos = {}, count = {};
+  stages.forEach((s) => (count[s] = 0));
+  plan.forEach((p) => { const ci = stages.indexOf(p.stage), k = count[p.stage]++; pos[p.measure_id] = { x: ci * (nodeW + colGap), y: padT + k * (nodeH + vGap) }; });
+  const colH = Math.max(...stages.map((s) => padT + plan.filter((p) => p.stage === s).length * (nodeH + vGap)));
+  const W = stages.length * (nodeW + colGap) - colGap, H = colH + 4;
+  const edges = plan.flatMap((p) => (p.depends_on || []).map((dep) => {
+    const a = pos[dep], b = pos[p.measure_id]; if (!a || !b) return "";
+    const x0 = a.x + nodeW, y0 = a.y + nodeH / 2, x1 = b.x, y1 = b.y + nodeH / 2, mx = (x0 + x1) / 2;
+    return `<path d="M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1}" fill="none" stroke="var(--accent-dim,var(--accent))" stroke-width="1.6" marker-end="url(#dagarr)" opacity=".85"/>`;
+  })).join("");
+  const nodes = plan.map((p) => { const q = pos[p.measure_id], c = p.standalone?.carbon?.total_kg, nk = p.standalone?.net_saving_kwh;
+    return `<div class="dag-node" data-goto="improvements" style="left:${q.x}px;top:${q.y}px;width:${nodeW}px;height:${nodeH}px;border-left-color:${SUIT_COL[p.suitability] || "var(--ink-3)"}" title="${esc(p.name)} · ${esc(p.suitability)} suitability">
+      <div class="dag-step">Step ${p.order} · ${esc(p.suitability)}</div>
+      <div class="dag-name">${esc(measureShort(p.name))}</div>
+      <div class="dag-impact">${c ? `−${fmt(c)} kg` : ""}${nk ? ` · −${kwh(nk)}` : ""}</div></div>`;
+  }).join("");
+  const heads = stages.map((s, ci) => `<div class="dag-col-head" style="left:${ci * (nodeW + colGap)}px;width:${nodeW}px">${esc(STAGE_LABEL[s] || "Stage " + s)}</div>`).join("");
+  const ex = (excluded || []).length ? `<div class="dag-excluded"><span class="muted small">Not in the path:</span> ${excluded.map((e) => `<span class="tag ${e.status === "infeasible" ? "assumed" : "unavailable"}" title="${esc(e.reason || "")}">${esc(measureShort(e.name))} — ${esc((e.status || "").replace(/_/g, " "))}</span>`).join(" ")}</div>` : "";
+  return `<div class="dag-wrap"><div class="dag-inner" style="width:${W}px;height:${H}px">
+    <svg viewBox="0 0 ${W} ${H}" class="dag-svg" width="${W}" height="${H}"><defs><marker id="dagarr" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="var(--accent-dim,var(--accent))"/></marker></defs>${edges}</svg>
+    ${heads}${nodes}
+  </div></div>${ex}
+  <div class="cmp-legend"><span>→ must be installed first</span><span><i style="background:var(--good)"></i>High</span><span><i style="background:var(--warn)"></i>Medium</span><span><i style="background:var(--ink-3)"></i>Low suitability</span></div>`;
+}
+
+// Score radar: the seven sub-scores (0–100) now vs after the recommended plan — strengths at a glance.
+const RADAR_LABEL = { energy_efficiency: "Efficiency", consumption_intensity: "Intensity", insulation: "Insulation", heating_system: "Heating", glazing: "Glazing", renewables: "Renewables", smart_controls: "Controls" };
+function scoreRadar(components, after) {
+  const ax = components || []; const n = ax.length; if (n < 3) return "";
+  const W = 320, H = 300, cx = W / 2, cy = H / 2 + 4, R = 100;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, r = R * Math.max(0, Math.min(100, v)) / 100; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  const poly = (vals) => vals.map((v, i) => pt(i, v).join(",")).join(" ");
+  const nowV = ax.map((c) => c.sub_score);
+  const aftV = ax.map((c) => after && after[c.key] != null && c.weight ? after[c.key] / c.weight : c.sub_score);
+  const rings = [25, 50, 75, 100].map((v) => `<polygon points="${ax.map((_, i) => pt(i, v).join(",")).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
+  const spokes = ax.map((_, i) => { const [x, y] = pt(i, 100); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`; }).join("");
+  const labels = ax.map((c, i) => { const [x, y] = pt(i, 120); const anchor = Math.abs(x - cx) < 12 ? "middle" : (x > cx ? "start" : "end"); return `<text x="${x}" y="${y + 3}" class="cmp-axis" text-anchor="${anchor}">${esc(RADAR_LABEL[c.key] || words(c.key))}</text>`; }).join("");
+  return `<svg viewBox="0 0 ${W} ${H + 16}" class="cmp-svg" role="img" aria-label="Score components now versus after the recommended plan">
+    ${rings}${spokes}
+    <polygon points="${poly(aftV)}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+    <polygon points="${poly(nowV)}" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-dasharray="4 3"/>
+    ${ax.map((c, i) => { const [x, y] = pt(i, c.sub_score); return `<circle cx="${x}" cy="${y}" r="2.5" fill="var(--ink-3)"><title>${esc(RADAR_LABEL[c.key] || c.key)} now ${fmt(c.sub_score, 0)}/100</title></circle>`; }).join("")}
+    ${labels}
   </svg>
-  <div class="cmp-legend"><span><i style="background:var(--good)"></i>Synergy (do together)</span><span><i style="background:var(--gas)"></i>Overlap (diminishing)</span><span><i style="background:var(--card-2)"></i>≈ no interaction</span></div>`;
+  <div class="cmp-legend"><span><i style="background:var(--accent)"></i>After the plan</span><span><i style="background:var(--ink-3)"></i>Now</span></div>`;
 }
 
 function sensitivityTornado(sens, key) {
@@ -600,6 +634,17 @@ async function pageProperty() {
     </div>
   </div></div>
 
+  <div class="section"><h2>Where this home stands</h2>
+    <div class="grid cols-2">
+      <div class="card"><h3>Score profile — now vs after the plan</h3>
+        <div class="card-sub">Each of the seven components, 0–100. The dashed outline is today; the filled shape is after the recommended upgrades. Dents point to where the home is weakest.</div>
+        ${scoreRadar(sc.components, f.package?.components_after)}</div>
+      <div class="card"><h3>Biggest point gaps</h3>
+        <div class="card-sub">Components losing the most against a perfect 100 — where the upgrades focus.</div>
+        ${(sc.components || []).slice().sort((a, b) => (b.weight * (100 - b.sub_score)) - (a.weight * (100 - a.sub_score))).slice(0, 5).map((c) => { const gap = c.weight * (100 - c.sub_score); const max = Math.max(...sc.components.map((x) => x.weight * (100 - x.sub_score)), 1); return `<div class="comp-row" style="grid-template-columns:1.2fr 1fr auto;padding:8px 0"><div class="comp-name">${esc(c.label)}</div><div class="comp-bar"><div class="bar"><span style="width:${gap / max * 100}%;background:var(--bad)"></span></div></div><div class="comp-contrib">−${fmt(gap, 1)}<small>pts</small></div></div>`; }).join("")}</div>
+    </div>
+  </div>
+
   <div class="section"><h2>Score breakdown</h2>
     <div class="card">
       <div class="card-sub">Score = Σ (weight × sub-score). A better state never lowers a sub-score. Each contribution reconciles to the total.</div>
@@ -736,6 +781,12 @@ async function pageImprovements() {
     <div class="readout warn" style="margin-top:4px">${savePounds > 0 ? `Every year you wait is about ${gbp(savePounds)} and ${fmt(im.carbon?.total_tonnes, 2)} t CO₂ not saved.` : ""}</div>
   </div>` : ""}
 
+  ${pkg && f.score?.components ? `<div class="card" style="margin-bottom:18px"><div class="grid cols-2" style="align-items:center">
+    <div><h3>Where you are vs where you could be</h3><div class="card-sub">Your seven score components today (dashed) and after the recommended upgrades (filled). The upgrades target the dents.</div>
+      <div class="btn-row"><button class="btn sm" data-goto="property">Full score breakdown →</button></div></div>
+    <div>${scoreRadar(f.score.components, f.package?.components_after)}</div>
+  </div></div>` : ""}
+
   ${plan.length ? plan.map((p, i) => `<div class="card" style="margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
       <div><div class="small muted">Step ${p.order} · ${esc(p.stage_label || "")}</div><h3>${esc(p.name)}</h3></div>
@@ -772,8 +823,9 @@ async function pagePlans() {
   const lab = await api(`/api/properties/${encodeURIComponent(S.pid)}/lab?budget=${PLAN.budget}&objective=${S.objective}`);
   LAB = lab;
   const feasible = [...new Set(lab.packages.flatMap((p) => p.measures))];
+  const pfacts = (await loadFacts(S.pid)).facts;
   const measureName = {};
-  (await loadFacts(S.pid)).facts.plan.forEach((p) => (measureName[p.measure_id] = p.name));
+  pfacts.plan.forEach((p) => (measureName[p.measure_id] = p.name));
   if (!PLAN.picked.size && lab.base_package) lab.base_package.forEach((m) => PLAN.picked.add(m));
 
   return `${pageHead("Compare Options", `Build and compare retrofit packages for <b>${esc(S.pid)}</b>, each re-calculated by the engine — per fuel, carbon, and indicative value. Savings are never simply added; interactions are accounted for.`)}
@@ -799,17 +851,17 @@ async function pagePlans() {
     <div id="pareto" style="margin-top:12px"></div>
   </div></div>
 
-  <div class="section"><div class="grid cols-2">
-    <div class="card"><h3>How measures interact</h3><div class="card-sub">Combined effect minus the sum of the parts, for each pair the engine evaluated. This is why savings are never simply added.</div>
-      <div class="btn-row" id="heat-tabs">${[["score_points", "Score"], ["net_kwh", "Energy"], ["carbon_kg", "Carbon"]].map(([k, l]) => `<button class="btn sm ${k === LABKEY.heat ? "primary" : ""}" data-heat="${k}">${l}</button>`).join("")}</div>
-      <div id="heat" style="margin-top:12px"></div></div>
-    <div class="card"><h3>What the result depends on</h3><div class="card-sub">How far the outcome moves as each assumed input varies. Wider bar = more sensitive; ⚠ = a survey would resolve it.</div>
-      <div class="btn-row" id="torn-tabs">${[["carbon_kg", "Carbon"], ["score", "Score"]].map(([k, l]) => `<button class="btn sm ${k === LABKEY.torn ? "primary" : ""}" data-torn="${k}">${l}</button>`).join("")}</div>
-      <div id="torn" style="margin-top:12px"></div></div>
-  </div></div>`;
+  <div class="section"><div class="card">
+    <h3>Retrofit order &amp; dependencies <span class="muted" style="font-weight:400">· the physics, not a list</span></h3>
+    <div class="card-sub">The engine sequences upgrades through a dependency graph: fabric first, then controls, low-carbon heat, and generation. An arrow means "must come first" — a heat pump is sized for the home insulation leaves behind, which is why savings never simply add up.</div>
+    ${dependencyGraph(pfacts.plan, pfacts.excluded)}
+  </div></div>
+
+  <div class="section"><div class="card"><h3>What the result depends on</h3><div class="card-sub">How far the outcome moves as each assumed input varies. Wider bar = more sensitive; ⚠ = a survey would resolve it.</div>
+    <div class="btn-row" id="torn-tabs">${[["carbon_kg", "Carbon"], ["score", "Score"]].map(([k, l]) => `<button class="btn sm ${k === LABKEY.torn ? "primary" : ""}" data-torn="${k}">${l}</button>`).join("")}</div>
+    <div id="torn" style="margin-top:12px"></div></div></div>`;
 }
 function drawPareto() { const el = $("#pareto"); if (el && LAB) { el.innerHTML = paretoChart(LAB.packages, LABKEY.pareto); afterRender(el); } }
-function drawHeat() { const el = $("#heat"); if (el && LAB) el.innerHTML = interactionHeatmap(LAB.interactions, LABKEY.heat); }
 function drawTorn() { const el = $("#torn"); if (el && LAB) el.innerHTML = sensitivityTornado(LAB.sensitivity, LABKEY.torn); }
 function planCard(pl, pkg, names) {
   if (!pkg) return `<div class="plan-card"><h4>${esc(pl.title)}</h4><p class="muted small">${esc(pl.definition)}</p><p class="muted">No feasible package.</p></div>`;
@@ -1115,7 +1167,6 @@ async function boot() {
     const planEl = e.target.closest("[data-plan]"); if (planEl) { PLAN.picked = new Set(planEl.dataset.plan.split(",").filter(Boolean)); route().then(() => recomputeCustom()); return; }
     const grpEl = e.target.closest("[data-group]"); if (grpEl) { $$("#group-tabs .btn").forEach((b) => b.classList.toggle("primary", b === grpEl)); fillGroups(grpEl.dataset.group); return; }
     const pa = e.target.closest("[data-pareto]"); if (pa) { LABKEY.pareto = pa.dataset.pareto; $$("#pareto-tabs .btn").forEach((b) => b.classList.toggle("primary", b === pa)); drawPareto(); return; }
-    const he = e.target.closest("[data-heat]"); if (he) { LABKEY.heat = he.dataset.heat; $$("#heat-tabs .btn").forEach((b) => b.classList.toggle("primary", b === he)); drawHeat(); return; }
     const to = e.target.closest("[data-torn]"); if (to) { LABKEY.torn = to.dataset.torn; $$("#torn-tabs .btn").forEach((b) => b.classList.toggle("primary", b === to)); drawTorn(); return; }
     if (!e.target.closest("#prop-switch")) closePropPop();
   });

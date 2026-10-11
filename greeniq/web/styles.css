@@ -436,3 +436,16 @@ svg text { font-family: var(--font-body); }
   .topbar { padding: 11px 16px; }
   .cols-2 { grid-template-columns: 1fr; }
 }
+
+/* Retrofit Dependency Graph */
+.dag-wrap { overflow-x: auto; padding: 4px 2px 8px; }
+.dag-inner { position: relative; margin: 0 auto; }
+.dag-svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+.dag-col-head { position: absolute; top: 0; text-align: center; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.dag-node { position: absolute; background: var(--card-2); border: 1px solid var(--line); border-left: 3px solid var(--ink-3);
+  border-radius: 9px; padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; overflow: hidden; transition: border-color .12s, transform .08s; }
+.dag-node:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.dag-step { font-size: 9.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); }
+.dag-name { font-size: 12.5px; font-weight: 600; line-height: 1.15; color: var(--ink); }
+.dag-impact { font-size: 11px; color: var(--good); font-variant-numeric: tabular-nums; margin-top: auto; }
+.dag-excluded { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
