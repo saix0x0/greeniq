@@ -157,23 +157,30 @@ function fuelBlock(name, cssVar, b) {
 
 // the AI explanation card (score or recommendations) — gated, provider-labelled.
 // Rendered as a pending placeholder; afterRender() fires renderAi once it's in the DOM.
-function aiCard(pid, scope, title) {
+// filter = optional array of ref prefixes; the card shows only sentences whose refs match one,
+// so each page's AI explanation is topic-specific and the pages don't repeat the same block.
+function aiCard(pid, scope, title, filter) {
   const id = "ai" + (rcSeq++);
-  return `<div class="card" id="${id}" data-ai-pending data-ai-pid="${esc(pid)}" data-ai-scope="${esc(scope)}">
+  return `<div class="card" id="${id}" data-ai-pending data-ai-pid="${esc(pid)}" data-ai-scope="${esc(scope)}"${filter ? ` data-ai-filter="${esc(JSON.stringify(filter))}"` : ""}>
     <div class="nba-head"><span class="pill"><span class="ai-mark">✦</span> AI explanation</span><b>${esc(title)}</b></div>
     <div class="loading" style="padding:10px 0"><span class="spinner"></span> Writing from the computed facts…</div></div>`;
 }
-async function renderAi(id, pid, scope) {
+async function renderAi(id, pid, scope, filter) {
   const el = document.getElementById(id); if (!el) return;
   try {
     const r = await api(`/api/properties/${encodeURIComponent(pid)}/explain?scope=${scope}&objective=${S.objective}`);
     const ex = r.explanation, prov = r.provider || {};
-    const gateOk = ex.gate ? ex.gate.passed : true;
     const by = ex.mode === "llm" ? `${esc(prov.name)} model` : "checked template";
+    let sents = ex.sentences;
+    if (filter && filter.length) {
+      const match = (s) => (s.refs || []).some((rf) => filter.some((p) => rf.startsWith(p)));
+      const kept = sents.filter(match);
+      if (kept.length) sents = kept;  // fall back to full text if the filter matched nothing
+    }
     el.querySelector(".loading")?.remove();
     el.insertAdjacentHTML("beforeend",
       `<div class="bubble" style="box-shadow:none;border:none;padding:0">
-        ${ex.sentences.map((s) => `<p>${esc(s.text)}${S.labels ? ` <span class="muted small">← ${esc(s.refs.join(", "))}</span>` : ""}</p>`).join("")}
+        ${sents.map((s) => `<p>${esc(s.text)}${S.labels ? ` <span class="muted small">← ${esc(s.refs.join(", "))}</span>` : ""}</p>`).join("")}
         <div class="by" style="margin-top:8px">Written by ${by} · <span class="ok">✓ every figure checked against the engine</span></div>
       </div>`);
   } catch (e) {
@@ -263,7 +270,7 @@ function afterRender(root) {
   $$("[data-reai]", root).forEach((el) => el.onclick = () => { const [id, pid, scope] = el.dataset.reai.split("|"); const c = document.getElementById(id); if (c) { c.querySelector(".callout")?.remove(); c.insertAdjacentHTML("beforeend", `<div class="loading" style="padding:8px 0"><span class="spinner"></span> Retrying…</div>`); renderAi(id, pid, scope); } });
   $$("[data-goto]", root).forEach((el) => el.onclick = () => { location.hash = "#/" + el.dataset.goto; });
   // pending AI explanation cards (now that they're in the DOM)
-  $$("[data-ai-pending]", root).forEach((el) => { el.removeAttribute("data-ai-pending"); renderAi(el.id, el.dataset.aiPid, el.dataset.aiScope); });
+  $$("[data-ai-pending]", root).forEach((el) => { el.removeAttribute("data-ai-pending"); let flt = null; try { flt = el.dataset.aiFilter ? JSON.parse(el.dataset.aiFilter) : null; } catch {} renderAi(el.id, el.dataset.aiPid, el.dataset.aiScope, flt); });
   // deferred container fills (run on every render incl. the initial one, each once)
   const fill = (sel, fn) => { const el = $(sel); if (el && !el.dataset.filled) { el.dataset.filled = "1"; fn(); } };
   if ($("#sample-homes", root)) fillSampleHomes();
@@ -280,12 +287,22 @@ function afterRender(root) {
 async function fillSampleHomes() {
   try {
     const props = await getProps();
-    const pick = [props.find((p) => (p.score || 0) > 0 && p.score < 35), props.find((p) => p.band === "Moderate"), props.find((p) => p.band === "Good")].filter(Boolean);
-    $("#sample-homes").innerHTML = pick.map((p) => `<div class="card" style="cursor:pointer" data-pick="${p.property_id}">
+    // a diverse demo set: one representative per band, plus a dramatic all-electric heat-pump case
+    const seen = new Set(); const pick = [];
+    const add = (p, hook) => { if (p && !seen.has(p.property_id)) { seen.add(p.property_id); pick.push({ ...p, hook }); } };
+    add(props.find((p) => (p.gas_kwh || 0) === 0 && p.score != null && p.score < 40 && p.baseline_basis === "metered"), "All-electric — big heat-pump opportunity");
+    add(props.find((p) => p.band === "Very poor" && p.score != null), "Worst band — act now");
+    add(props.find((p) => p.band === "Poor" && (p.gas_kwh || 0) > 0 && p.score != null), "Gas home — fabric first");
+    add(props.find((p) => p.band === "Moderate" && p.score != null), "Middle of the pack");
+    add(props.find((p) => p.band === "Good" && p.score != null), "Already performing well");
+    add(props.find((p) => p.band === "Highly efficient" && p.score != null), "Top band — little to do");
+    const set = pick.slice(0, 6);
+    $("#sample-homes").innerHTML = set.map((p) => `<div class="card" style="cursor:pointer" data-pick="${p.property_id}">
       <div class="score-hero"><div style="--band-col:${bandCol(p.band)}">${scoreRing(p.score, p.band, p.score_range)}</div>
-      <div><h3>${esc(p.property_id)}</h3><div class="small muted">${esc(p.property_type || "")} · ${esc(p.region || "")} · ${fmt(p.floor_area_m2)} m²</div>
+      <div><h3>${esc(p.property_id)}</h3><div class="small muted">${esc(p.property_type || "")} · ${esc(p.region || "")} · ${fmt(p.floor_area_m2)} m² · ${(p.gas_kwh || 0) === 0 ? "all-electric" : "gas heating"}</div>
       <div style="margin-top:6px">${bandChip(p.band)}</div></div></div>
-      <div class="small muted" style="margin-top:10px">${esc(p.top_issue || "")}</div></div>`).join("");
+      <div class="small" style="margin-top:10px"><b style="color:var(--accent)">${esc(p.hook)}</b></div>
+      <div class="small muted" style="margin-top:3px">${esc(p.top_issue || "")}</div></div>`).join("");
     $$("[data-pick]").forEach((el) => el.onclick = () => selectHome(el.dataset.pick));
   } catch (e) { $("#sample-homes").innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
 }
@@ -696,7 +713,7 @@ async function pageProperty() {
     </div>
   </div>
 
-  <div class="section">${aiCard(S.pid, "home", "Why this home scores what it does")}</div>`;
+  <div class="section">${aiCard(S.pid, "home", "Why this home scores what it does", ["score.", "next_best_action", "confidence"])}</div>`;
 }
 
 // ── AI energy advisor ──────────────────────────────────────
@@ -844,7 +861,7 @@ async function pageSavings() {
   const { facts: f } = await loadFacts(S.pid);
   return `${pageHead("Savings & Carbon", `How much energy and carbon <b>${esc(S.pid)}</b> could save with the recommended package. Electricity and gas are tracked separately; a heat pump can raise electricity while cutting gas, shown honestly. Savings are estimates, not guarantees.`)}
     ${energySection(f)}
-    <div class="section">${aiCard(S.pid, "package", "What these savings mean")}</div>`;
+    <div class="section">${aiCard(S.pid, "package", "What these savings mean", ["package.impact", "package.measures", "package.sum", "package.interaction"])}</div>`;
 }
 
 // ── 5 · Property Value (PS2 step 5) ──
@@ -852,7 +869,7 @@ async function pageValuePage() {
   const { facts: f } = await loadFacts(S.pid);
   return `${pageHead("Property Value", `A <b>range</b>, not a single figure — from historical EPC-band / sale-price relationships in our dataset. Explicitly indicative: not a valuation, not a guarantee, and not proof that retrofitting causes a price rise.`)}
     ${valueSection(f)}
-    <div class="section">${aiCard(S.pid, "package", "How to read this estimate")}</div>`;
+    <div class="section">${aiCard(S.pid, "package", "How to read this estimate", ["value", "package.epc_band", "package.score_after", "package.cost"])}</div>`;
 }
 
 // ── Compare Options (Decision Lab) ───────────────────────────
