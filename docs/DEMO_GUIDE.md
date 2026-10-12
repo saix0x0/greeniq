@@ -9,7 +9,7 @@ sentence that does not match them.
 
 ```bash
 git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
-cd Absolut && git checkout beautiful
+cd Absolut
 uv sync --extra llm        # Python 3.11+; --extra llm adds the Claude SDK
 ```
 

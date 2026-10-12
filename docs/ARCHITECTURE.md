@@ -1,7 +1,7 @@
-# GreenIQ architecture, as built (submission artifact F)
+# GreenIQ architecture
 
-> The design rationale is in [`03_ARCHITECTURE.md`](03_ARCHITECTURE.md). This page shows what the code
-> actually does, with module paths.
+> This page shows what the code actually does, with module paths. For scoring internals see
+> [`SCORING_METHOD.md`](SCORING_METHOD.md); for the grounded-AI layer see [`LLM.md`](LLM.md).
 
 ```mermaid
 flowchart TB

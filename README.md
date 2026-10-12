@@ -1,148 +1,17 @@
 # GreenIQ — Green Home Score & Retrofit Recommendation Engine
 
-> ## 🔄 Live status (updated as work happens)
-> **Now: a layer-by-layer audit against the PS2 sheet** (each formula checked by hand, fixed, tested), then the
-> dashboard rebuilt around the brief. Done so far: score (§2), poor homes and improvement potential (§3), upgrade
-> rules (§4), real-world savings calibration, evaluation on the validation set (§11/§13G), and the new dashboard
-> (one home answers the four questions; many homes compares homes and groups on every PS2 output). 199 tests pass.
-> **Fixed in this audit:** wrong insulation weights in user text; estimated-baseline homes wrongly left out of the
-> ranking; solar ruled "infeasible" where it only needs consent; real-home savings compared median-to-mean (loft
-> savings were understated); hidden constants moved to a documented assumptions file.
-> **Next:** layers §5–§8 (savings, carbon, value, AI explanations), then R5/R7/R8. Progress log:
-> [`docs/STATUS_AND_PLAN.md`](docs/STATUS_AND_PLAN.md) §6c.
+[![CI](https://github.com/SHARMA-AtharvaIIIT/Absolut/actions/workflows/ci.yml/badge.svg)](https://github.com/SHARMA-AtharvaIIIT/Absolut/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
-**Our solution to Lloyds Problem Statement 2.** GreenIQ answers a homeowner's four
-questions: *How green is my home today? What should I improve? How much energy and
-carbon could I save? Could it increase my property's value?* It does this with numbers
-you can trust and explanations you can check.
+GreenIQ answers a homeowner's four questions — **How green is my home today? What should I
+improve? How much energy and carbon could I save? Could it increase my property's value?** —
+with numbers from a deterministic engine and explanations you can check line by line.
 
-![GreenIQ system at a glance](docs/assets/greeniq-system.svg)
+Built for **Lloyds Megathon Problem Statement 2**. Runs on one port, with no Node build step
+and no API key required.
 
-## Run it
-
-### 1 · Install (once)
-You need **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** (`pip install uv` works too). No Node, no API key.
-```bash
-git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
-cd Absolut
-git checkout beautiful        # or main (kept in sync)
-uv sync                       # creates .venv with the pinned dependencies
-```
-
-### 2 · Start the app
-```bash
-uv run python -m greeniq serve
-```
-Open **http://127.0.0.1:8000**. The first start analyses all 3,000 homes and caches them (~20 s); later starts take ~3 s.
-Explanations come from the built-in template narrator, so everything works with no AI and no key.
-
-### 3 · What to click (a 3-minute tour)
-Full script with verified demo homes: **[`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md)**. Desktop/laptop screen.
-
-1. **One home** (open an example from the start page). A decision strip reads like an insurer's case file:
-   **Green Home Score** (band, poor-efficiency flag, standing among similar homes) → **Priority** (Act now / Check
-   first / Worth doing / No action) → **Next best action** (cost, CO₂e, confidence) → **Before you act** (missing or
-   conflicting facts). Then five tabs: **Green Home Score**, **Improvements**, **Energy & carbon**, **Property value**,
-   **What if…**. The AI card explains the score and the recommendations; every figure is checked against the engine.
-2. **Many homes**: **Overview** (tiers and portfolio outputs), **Priority list** (click a row for a quick view, tick
-   up to four to compare), **Compare** (groups by region, type, age, heating, EPC band, score band, data quality).
-3. **How it works**: each formula from the brief with our parameters, validation vs simple baselines, assumptions.
-
-**AI provider.** Claude: `uv sync --extra llm` then `ANTHROPIC_API_KEY=… uv run python -m greeniq serve`.
-Ollama: `GREENIQ_LLM_PROVIDER=ollama uv run python -m greeniq serve`. No key: the checked template is used.
-
-### 4 · Optional: a free local AI narrator (no API key, no cost)
-Any OpenAI-compatible local server works. Example with **llama.cpp** (~45 MB) and **Qwen2.5-1.5B** (~1.1 GB):
-```bash
-# download llama-server (Linux CPU build): https://github.com/ggml-org/llama.cpp/releases (llama-bXXXX-bin-ubuntu-x64.tar.gz)
-# download the model: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF (qwen2.5-1.5b-instruct-q4_k_m.gguf)
-./llama-server -m qwen2.5-1.5b-instruct-q4_k_m.gguf --port 8081 --alias qwen2.5-1.5b-instruct
-# in another terminal:
-GREENIQ_LLM_PROVIDER=openai_compatible GREENIQ_LLM_BASE_URL=http://127.0.0.1:8081/v1 \
-  GREENIQ_LLM_MODEL=qwen2.5-1.5b-instruct uv run python -m greeniq serve
-```
-Other options: **Ollama** (`ollama pull qwen2.5:7b`, then `GREENIQ_LLM_PROVIDER=ollama`); a **free hosted tier**
-(Groq, Gemini, OpenRouter) via `GREENIQ_LLM_BASE_URL` + `GREENIQ_LLM_API_KEY` + `GREENIQ_LLM_MODEL`; or **Claude**
-(`uv sync --extra llm`, set `ANTHROPIC_API_KEY`). Whatever the model writes passes the grounding gate first, or the
-template is shown instead. `GREENIQ_LLM=off` forces the template.
-
-### 5 · Reproduce the evidence
-```bash
-uv run pytest                                   # all tests
-uv run python -m greeniq analyse P00007         # one home in the terminal
-uv run python -m greeniq real-evidence          # real NEED data → reports/REAL_DATA.md (~20 s)
-uv run python -m greeniq evaluate               # held-out test split → reports/EVALUATION.md
-uv run python -m greeniq eval-grounding         # grounding gate → reports/GROUNDING.md (add --llm 20 with a model)
-uv run python -m greeniq edge-sweep             # every PS2 scenario over 3,000 homes → reports/EDGE_CASES.md (~90 s)
-uv run python -m greeniq generate && uv run python -m greeniq train   # rebuild the synthetic data and models from scratch
-```
-> On a machine with ROS installed, prefix commands with `env -u PYTHONPATH` (ROS pytest plugins leak in).
-
-**Data:** the app's detailed homes are **synthetic** (documented simulator, [`data/DATA_CARD.md`](data/DATA_CARD.md)).
-Real data, **DESNZ NEED (50,000 real homes, OGL v3.0)**, drives the real-home benchmarks, the real retrofit
-evidence and the real-data model evaluation ([`reports/REAL_DATA.md`](reports/REAL_DATA.md)). Real figures carry a `real data` badge.
-
----
-
-## Project state & how to continue (handoff)
-
-**Everything below is on branch `beautiful`; `main` is kept in sync (fast-forward, never force-push).**
-
-| Phase | What it delivers | Status |
-|---|---|---|
-| P1 Stabilise | verified engine (88 tests), merged `main` in | ✅ |
-| P2 Next Best Action | one action per home from computed facts, 3 traced reasons, respects prerequisites | ✅ |
-| P3 API + dashboard | one-port no-build web app; portfolio, properties, property view, analytics, evidence | ✅ |
-| P4 Decision Lab | Choose Your Plan, cost-vs-carbon frontier, dependency graph, energy Sankey, interaction heatmap, sensitivity | ✅ |
-| P5 Grounded AI | grounding gate, gated explain, what-if assistant, groundedness eval, UI, e2e sweep, docs | ✅ |
-
-**Key files** — engine: [`greeniq/pipeline.py`](greeniq/pipeline.py) (`analyse_home` → `ComputedFacts`, the single
-source of every number); NBA: [`greeniq/engines/nba.py`](greeniq/engines/nba.py); Decision Lab:
-[`greeniq/lab.py`](greeniq/lab.py); API: [`greeniq/api.py`](greeniq/api.py); UI: [`greeniq/web/`](greeniq/web/);
-grounded AI: [`greeniq/trust/`](greeniq/trust/) (`gate.py`, `narrator.py`, `llm.py`, `assistant.py`, `prompts.py`).
-
-**Submission artifacts (PS2 §13):** working app (`uv run python -m greeniq serve`) · source + data scripts ·
-models in [`models/`](models/) · scoring [`docs/SCORING_METHOD.md`](docs/SCORING_METHOD.md) · LLM
-[`docs/LLM.md`](docs/LLM.md) · architecture [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · evaluation
-[`reports/EVALUATION.md`](reports/EVALUATION.md), [`reports/GROUNDING.md`](reports/GROUNDING.md),
-[`reports/EDGE_CASES.md`](reports/EDGE_CASES.md) · Responsible AI [`docs/RESPONSIBLE_AI.md`](docs/RESPONSIBLE_AI.md) ·
-held-out predictions [`reports/test_predictions.csv`](reports/test_predictions.csv).
-
-### The grounded-AI (LLM) layer — and testing it for free
-
-The PS2 brief requires an LLM that **only explains** computed results and answers what-ifs (it must never
-calculate or invent numbers); it is worth 15% of the score (artifact E). Our design keeps that boundary:
-
-- The engine computes every number; the LLM only rewrites a fact sheet into plain English.
-- A **grounding gate** ([`greeniq/trust/gate.py`](greeniq/trust/gate.py)) checks every explanation (numbers,
-  units, per-fuel direction, causal value wording, scenario identity). **Anything that fails never reaches the
-  user — the deterministic template explanation is shown instead.**
-- The app runs fully **with the LLM off** (no key needed) on that template narrator.
-
-Because the gate checks the *text*, not the model, **any LLM can be used to exercise the path** — including
-free ones. The LLM call is isolated in [`greeniq/trust/llm.py`](greeniq/trust/llm.py):
-
-- **Default:** Claude (`claude-opus-5-5`), used only if `ANTHROPIC_API_KEY` is set and `uv sync --extra llm`
-  has installed the `anthropic` package. Each explanation shown is then one API call.
-- **Free testing (not wired; optional):** add an OpenAI-compatible branch (uses `httpx`,
-  already a dependency — no new package) pointed via env vars at a free endpoint:
-  - **Ollama (local, no key, offline):** install Ollama, `ollama pull llama3.1`, point at `http://localhost:11434/v1`.
-  - **Groq / Google Gemini / OpenRouter free tiers:** sign up, paste a free key, point at their OpenAI-compatible URL.
-  - A weaker free model is a *good* stress test: if its hallucinations get caught and fall back to the template,
-    that demonstrates the safety design.
-- **`GREENIQ_LLM=off`** forces the template narrator regardless of keys.
-
-Run the groundedness evaluation (ER-4): `uv run python -m greeniq eval-grounding` (add `--llm N` to also run the
-model on N homes once a provider is configured) → [`reports/GROUNDING.md`](reports/GROUNDING.md).
-
-> **Prototype implementation:** a working deterministic Python prototype now lives in
-> [`greenpath_home/`](greenpath_home/). It uses generated sample data and includes
-> scoring, poor-home ranking, retrofit recommendations, energy savings, carbon
-> reduction, indicative property-value impact, docs, and tests.
-
-> **How the prototype fits:** its ideas, wording and tests are **helpers and
-> suggestions** for the main build. Where the spec or a better idea exists, that wins.
-> See [`docs/14_GREENPATH_PROTOTYPE_NOTES.md`](docs/14_GREENPATH_PROTOTYPE_NOTES.md).
+![GreenIQ — a single home's overview](docs/assets/screenshot-home.jpg)
 
 ---
 
@@ -150,11 +19,48 @@ model on N homes once a provider is configured) → [`reports/GROUNDING.md`](rep
 
 > **Code computes every number. AI only explains. Every number has a receipt.**
 
-The score, savings, carbon and value figures come from deterministic engines and
-evaluated models. A language model may only **explain** those computed facts and answer
-**what-if** questions **after the engines have rerun**. A **grounding gate** blocks any AI
-sentence that contains a number or claim the engines didn't produce, and a deterministic
-template takes its place. A hallucinated number can never reach the customer.
+The score, savings, carbon and value figures come from deterministic engines and models
+evaluated on held-out data. A language model may only **explain** those computed facts and
+answer **what-if** questions *after the engines have re-run*. A [grounding
+gate](greeniq/trust/gate.py) blocks any AI sentence containing a number or claim the engines
+didn't produce, and shows a deterministic template instead. **A hallucinated number can never
+reach the customer** — and the whole app runs with the LLM switched off.
+
+---
+
+## Run it
+
+You need **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** (`pip install uv` works too).
+
+```bash
+git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
+cd Absolut
+uv sync                          # creates .venv with pinned dependencies
+uv run python -m greeniq serve   # open http://127.0.0.1:8000
+```
+
+The first start analyses all 3,000 homes and caches them (~20 s); later starts take ~3 s.
+Explanations come from a built-in template narrator, so everything works with no AI and no key.
+
+**A 3-minute tour** with verified demo homes: [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md).
+Designed for a desktop/laptop screen.
+
+### Optional: add a language model
+
+The LLM layer is isolated in [`greeniq/trust/llm.py`](greeniq/trust/llm.py) and gated, so any
+model works — even free local ones.
+
+| Provider | How |
+|---|---|
+| **None (default)** | Nothing to do. The checked template narrator is used. |
+| **Claude** | `uv sync --extra llm`, then `ANTHROPIC_API_KEY=… uv run python -m greeniq serve` |
+| **Ollama (local, offline)** | `ollama pull qwen2.5:7b`, then `GREENIQ_LLM_PROVIDER=ollama uv run python -m greeniq serve` |
+| **Any OpenAI-compatible endpoint** | set `GREENIQ_LLM_BASE_URL` + `GREENIQ_LLM_API_KEY` + `GREENIQ_LLM_MODEL` (Groq / Gemini / OpenRouter free tiers work) |
+
+Whatever the model writes passes the grounding gate first, or the template is shown instead.
+`GREENIQ_LLM=off` forces the template.
+
+---
 
 ## What GreenIQ produces
 
@@ -168,71 +74,108 @@ template takes its place. A hallucinated number can never reach the customer.
 
 ---
 
-## The pack
+## Evidence
 
-```mermaid
-flowchart LR
-    P["START_HERE_PROMPT"] ==> SPEC["11 Implementation spec<br/>(build contract)"]
-    SPEC ==> MX["12 Requirements matrix<br/>(acceptance tests)"]
-    SPEC -. rationale .-> G
-    AU["13 Pack audit"] -.-> SPEC
-    P --> G["01 Guardrails"]
-    G --> R["02 Problem decoded"]
-    R --> A["03 Architecture"]
-    A --> F["04 Runtime flows"]
-    F --> RS["05 Research playbook"]
-    RS --> B["06 Build framework"]
-    B --> T["07 Trust & evaluation"]
-    T --> X["08 Extensibility roadmap"]
-    X --> S["09 Submission & demo"]
-    H["10 Mechanisms handbook"] -.-> A
-    H -.-> B
-    H -.-> T
-    classDef law fill:#3d2f0a,stroke:#fbbf24,color:#fffbeb;
-    classDef design fill:#0f3d2e,stroke:#34d399,color:#ecfdf5;
-    classDef kit fill:#2a1b4a,stroke:#a78bfa,color:#f5f3ff;
-    class P,G law;
-    class R,A,F,RS,B,T,X,S design;
-    class H kit;
+Every method is benchmarked against a simple baseline on a **held-out test split** (split by
+customer; scored once, after all tuning). Full report:
+[`reports/EVALUATION.md`](reports/EVALUATION.md), regenerated from code on each run.
+
+| Output | Metric | GreenIQ | Simple baseline |
+|---|---|---|---|
+| Retrofit saving, electricity (77 observed retrofits) | MAE kWh | **153** | 699 (flat % rule of thumb) |
+| Retrofit saving, gas (77 observed retrofits) | MAE kWh | **272** | 1,600 (flat % rule of thumb) |
+| Heat-pump electricity direction | % correct | **100%** | 17% |
+| Ranking poor homes | Spearman vs true potential | **0.850** | 0.644 |
+| Energy rating when no EPC | MAE SAP points | **4.4** | 7.1 (peer median) |
+| Baseline gas (meters insufficient) | MAE kWh | **1,963** | 3,046 (peer median × area) |
+
+Score band agreement with true inputs **93.7%**; score ranges cover the truth **95%** of the
+time; feasibility recall **97.5%**. ~3.9 ms per home.
+
+> Where a simple baseline wins, the product *uses it* or labels the output as an estimate —
+> the evaluation reports losses as honestly as wins.
+
+---
+
+## How it works
+
+```
+HomeState ──► analyse_home() ──► ComputedFacts ──► { API · Decision Lab · grounded narrator }
+             (greeniq/pipeline.py)   one contract,
+                                     the single source of every number
 ```
 
-| # | Document | What it gives you |
-|---|---|---|
-| ▶ | [`START_HERE_PROMPT.md`](START_HERE_PROMPT.md) | The prompt that starts the build session |
-| 01 | [Guardrails](docs/01_GUARDRAILS.md) | Binding rules: scope, borrowing, the one law, PS-fixed formulas, data and engineering rules |
-| 02 | [Problem decoded](docs/02_PROBLEM_DECODED.md) | PS2 → traceable requirement IDs (FR/DR/ER/SR) + judging weights |
-| 03 | [Architecture](docs/03_ARCHITECTURE.md) | Layers, components, the domain contract, provider seams, trust boundary |
-| 04 | [Runtime flows](docs/04_RUNTIME_FLOWS.md) | Sequence diagrams: analyse, explain, what-if, portfolio, memory; the gate's logic |
-| 05 | [Research playbook](docs/05_RESEARCH_PLAYBOOK.md) | Research questions, where to look, the candidate scorecard, the borrow protocol |
-| 06 | [Build framework](docs/06_BUILD_FRAMEWORK.md) | Phases + exit gates, walking skeleton, definition of done, testing strategy |
-| 07 | [Trust & evaluation](docs/07_TRUST_AND_EVALUATION.md) | Hallucination defence in depth, failure modes, evaluation framework, Responsible AI |
-| 08 | [Extensibility roadmap](docs/08_EXTENSIBILITY_ROADMAP.md) | Extension points + advanced feature backlog |
-| 09 | [Submission & demo](docs/09_SUBMISSION_AND_DEMO.md) | PS2 deliverables checklist, readiness checks, pitch + demo path |
-| 10 | [Mechanisms handbook](docs/10_MECHANISMS_HANDBOOK.md) | 18 proven mechanisms + hard-won lessons, pre-distilled from the team's earlier work |
-| **11** | **[Implementation spec](docs/11_IMPLEMENTATION_SPEC.md)** | **The build contract:** stack, layout, data pipeline, every formula and table, LLM interface, API, DB, screens, tests, evaluation, commands |
-| 12 | [Requirements matrix](docs/12_REQUIREMENTS_MATRIX.md) | Every mandatory PS2 requirement → module → calculation → acceptance test |
-| 13 | [Pack audit](docs/13_PACK_AUDIT.md) | Blocking/important gaps found and fixed; accepted trade-offs |
-| 14 | [Prototype notes](docs/14_GREENPATH_PROTOTYPE_NOTES.md) | What to borrow from `greenpath_home/` (helpers) vs what the spec supersedes |
-| ADR | [Decision records](docs/adr/) | ADR-001 (deterministic core, grounded language), ADR-002 (base-product decisions), template |
-| PS | [Problem statement](docs/reference/LLOYDS-ps2.pdf) | The source of truth |
+- **Engine** — [`greeniq/pipeline.py`](greeniq/pipeline.py): `analyse_home → ComputedFacts`, the
+  single source of every number on screen.
+- **Next best action** — [`greeniq/engines/nba.py`](greeniq/engines/nba.py): one action per home
+  from computed facts, with traced reasons that respect prerequisites.
+- **Decision Lab** — [`greeniq/lab.py`](greeniq/lab.py): cost-vs-carbon frontier, dependency
+  graph, energy Sankey, sensitivity.
+- **Grounded AI** — [`greeniq/trust/`](greeniq/trust/): `gate.py`, `narrator.py`, `llm.py`,
+  `assistant.py`, `prompts.py`.
+- **API + web** — [`greeniq/api.py`](greeniq/api.py) (FastAPI) and [`greeniq/web/`](greeniq/web/)
+  (a dependency-free single-page app served on the same port).
 
-## How to start the build
+Architecture in depth: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-1. Open a fresh Claude Code session with access to this repository.
-2. Paste everything in the box in [`START_HERE_PROMPT.md`](START_HERE_PROMPT.md).
-3. It reads the problem statement and the spec, then builds and integrates the
-   **complete base product** (data pipeline, engines, LLM layer, what-if, API, frontend,
-   tests, evaluation, submission docs) in one pass, runs and fixes the tests, verifies
-   the flows end to end, and pushes. Advanced features come next, behind the seams.
+---
 
-## Principles at a glance
+## Reproduce the evidence
 
-- **Deterministic core, language at the edge.** Numbers are computed; words are gated.
-- **One contract.** `HomeState → ComputedFacts`, read and written by every module.
-- **Seams with fallbacks.** Every intelligent step has a baseline, and a clean clone
-  runs with no keys.
-- **Receipts everywhere.** Click any number to see its inputs, method and source.
-- **Honest uncertainty.** Estimates are labelled, value is a range, and "insufficient
-  information" is a valid answer.
-- **Evidence over sophistication.** Every model is benchmarked against a simple baseline
-  on held-out data.
+```bash
+uv run pytest                                   # the full test suite
+uv run python -m greeniq analyse P00007         # one home in the terminal
+uv run python -m greeniq real-evidence          # real NEED data → reports/REAL_DATA.md (~20 s)
+uv run python -m greeniq evaluate               # held-out test split → reports/EVALUATION.md
+uv run python -m greeniq eval-grounding         # grounding gate → reports/GROUNDING.md
+uv run python -m greeniq edge-sweep             # every PS2 scenario over 3,000 homes (~90 s)
+uv run python -m greeniq generate && uv run python -m greeniq train   # rebuild data + models
+```
+
+> On a machine with ROS installed, prefix commands with `env -u PYTHONPATH` (ROS pytest plugins leak in).
+
+---
+
+## Data & honesty
+
+The app's detailed homes are **synthetic**, from a documented simulator
+([`data/DATA_CARD.md`](data/DATA_CARD.md)). Agreement with the simulated world shows the method
+and pipeline work; **it is not a claim of real-world accuracy.**
+
+Real data — **DESNZ NEED (50,000 real homes, OGL v3.0)** — drives the real-home benchmarks, the
+real retrofit-saving evidence and the real-data model evaluation
+([`reports/REAL_DATA.md`](reports/REAL_DATA.md)). Figures derived from it carry a `real data` badge
+in the UI.
+
+---
+
+## Tech stack
+
+Python 3.11 · FastAPI + Uvicorn · scikit-learn · pandas / numpy · pydantic · a dependency-free
+vanilla-JS single-page app. No Node build step. Dependencies pinned in
+[`pyproject.toml`](pyproject.toml) / [`uv.lock`](uv.lock); tests run in CI on every push.
+
+## Repository layout
+
+| Path | What's there |
+|---|---|
+| [`greeniq/`](greeniq/) | The engine, API, web app, ML models and the grounded-AI layer |
+| [`data/`](data/) | The synthetic dataset and its [data card](data/DATA_CARD.md) |
+| [`models/`](models/) | Trained, versioned model artifacts |
+| [`reports/`](reports/) | Evaluation, grounding and edge-case reports (regenerated from code) |
+| [`tests/`](tests/) | The test suite |
+| [`docs/`](docs/) | Architecture, scoring method, LLM design, Responsible AI, demo guide, ADRs |
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — components, the domain contract, trust boundary
+- [Scoring method](docs/SCORING_METHOD.md) — the Green Home Score, formula by formula
+- [Methodology](docs/METHODOLOGY.md) — energy, carbon, savings and value models
+- [LLM design](docs/LLM.md) — the grounded-AI layer and the grounding gate
+- [Responsible AI](docs/RESPONSIBLE_AI.md) — failure modes, uncertainty, honest limits
+- [Demo guide](docs/DEMO_GUIDE.md) — a verified 3-minute walkthrough
+- [Decision records](docs/adr/) — the key design decisions and why
+
+## License
+
+[MIT](LICENSE).

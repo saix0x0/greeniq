@@ -2,13 +2,12 @@
 
 - **Status:** accepted
 - **Date:** 2026-10-10
-- **Requirements:** all mandatory PS2 requirements (see `12_REQUIREMENTS_MATRIX.md`)
-- **Supersedes:** the open research questions RQ-1…RQ-11 in `05_RESEARCH_PLAYBOOK.md`
+- **Requirements:** all mandatory PS2 requirements
 
 ## Context
-The pack defined the architecture's shape but left methods, data and stack open, which
-was unsafe for a one-pass build. This ADR records the decisions. Details live in
-`11_IMPLEMENTATION_SPEC.md`.
+The architecture's shape was fixed early, but methods, data and stack were left open.
+This ADR records the concrete decisions taken for the build. Implementation details live
+in [`../ARCHITECTURE.md`](../ARCHITECTURE.md) and [`../SCORING_METHOD.md`](../SCORING_METHOD.md).
 
 ## Decisions
 | Area | Decision | Why |

@@ -2,8 +2,7 @@
 
 - **Status:** proposed | accepted | superseded by ADR-XXX
 - **Date:** YYYY-MM-DD
-- **Requirements:** FR-x / DR-x / ER-x (from `02_PROBLEM_DECODED.md`)
-- **Research question:** RQ-x (from `05_RESEARCH_PLAYBOOK.md`)
+- **Requirements:** FR-x / DR-x / ER-x
 
 ## Context
 What needs deciding, and why now. Constraints from the guardrails.
