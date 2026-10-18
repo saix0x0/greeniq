@@ -8,8 +8,8 @@ sentence that does not match them.
 ## 1. Setup (once)
 
 ```bash
-git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
-cd Absolut
+git clone https://github.com/saix0x0/greeniq.git
+cd greeniq
 uv sync --extra llm        # Python 3.11+; --extra llm adds the Claude SDK
 ```
 

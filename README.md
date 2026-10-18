@@ -1,6 +1,6 @@
 # GreenIQ — Green Home Score & Retrofit Recommendation Engine
 
-[![CI](https://github.com/SHARMA-AtharvaIIIT/Absolut/actions/workflows/ci.yml/badge.svg)](https://github.com/SHARMA-AtharvaIIIT/Absolut/actions/workflows/ci.yml)
+[![CI](https://github.com/saix0x0/greeniq/actions/workflows/ci.yml/badge.svg)](https://github.com/saix0x0/greeniq/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -33,8 +33,8 @@ reach the customer** — and the whole app runs with the LLM switched off.
 You need **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** (`pip install uv` works too).
 
 ```bash
-git clone https://github.com/SHARMA-AtharvaIIIT/Absolut.git
-cd Absolut
+git clone https://github.com/saix0x0/greeniq.git
+cd greeniq
 uv sync                          # creates .venv with pinned dependencies
 uv run python -m greeniq serve   # open http://127.0.0.1:8000
 ```
